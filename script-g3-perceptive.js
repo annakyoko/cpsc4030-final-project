@@ -128,6 +128,7 @@ d3.csv(DATA_PATH).then(function(rows) {
     group.selectAll('rect')
         .data(d => keys.map(key => ({key, value: d[key], count: d.count, label: d.label})))
         .enter().append('rect')
+        .attr('class', d => `bar bar-${d.key}`)
         .attr('x', d => x1(d.key))
         .attr('y', d => y(d.value))
         .attr('width', x1.bandwidth())
@@ -136,7 +137,35 @@ d3.csv(DATA_PATH).then(function(rows) {
         .attr('stroke', '#333')
         .attr('stroke-width', 0.2)
         .on('mouseover', function(event, d) {
-            d3.select(this).attr('opacity', 0.8);
+            const hoveredKey = d.key;
+            
+            // Function to create faded color (lighter + desaturated)
+            const fadedColor = (c) => {
+                const h = d3.hsl(c);
+                h.s = h.s * 0.25; // reduce saturation
+                h.l = Math.min(h.l + 0.35, 0.95); // increase lightness
+                return h.toString();
+            };
+            
+            // Lighten and desaturate bars of non-hovered variables (target only chart bars)
+            d3.selectAll('rect.bar').attr('fill', function(barData) {
+                return hoveredKey === barData.key ? color(barData.key) : fadedColor(color(barData.key));
+            }).attr('opacity', function(barData) {
+                return hoveredKey === barData.key ? 1 : 0.45;
+            });
+            
+            // Apply same fading to trend lines
+            keys.forEach(k => {
+                d3.selectAll(`.trend-${k}`).attr('stroke', hoveredKey === k ? color(k) : fadedColor(color(k)))
+                    .attr('opacity', hoveredKey === k ? 1 : 0.3);
+            });
+            
+            // Apply same fading to points
+            keys.forEach(k => {
+                d3.selectAll(`.point-${k}`).attr('fill', hoveredKey === k ? color(k) : fadedColor(color(k)))
+                    .attr('opacity', hoveredKey === k ? 1 : 0.35);
+            });
+            
             tooltip.style('display','block')
                 .html(`<strong>${d.key}</strong><br/>avg: ${d.value.toFixed(3)}<br/>count: ${d.count}`)
                 .style('left', (event.pageX + 10) + 'px')
@@ -147,7 +176,11 @@ d3.csv(DATA_PATH).then(function(rows) {
                          .style('top', (event.pageY + 10) + 'px');
         })
         .on('mouseout', function(){
-            d3.select(this).attr('opacity', 1);
+            d3.selectAll('rect.bar').attr('fill', d => color(d.key)).attr('opacity', 1);
+            keys.forEach(k => {
+                d3.selectAll(`.trend-${k}`).attr('stroke', color(k)).attr('opacity', 1);
+                d3.selectAll(`.point-${k}`).attr('fill', color(k)).attr('opacity', 1);
+            });
             tooltip.style('display','none');
         });
 
