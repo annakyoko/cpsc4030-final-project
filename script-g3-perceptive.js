@@ -19,7 +19,7 @@ d3.csv(DATA_PATH).then(function(rows) {
     })).filter(d => d.popularity !== null);
 
     if (!data.length) {
-        d3.select('#visualization3').append('div').text('No numeric data found. Check CSV column names.');
+        d3.select('#perceptive').append('text').text('No numeric data found. Check CSV column names.');
         console.error('No numeric rows after parsing.');
         return;
     }
@@ -66,14 +66,11 @@ d3.csv(DATA_PATH).then(function(rows) {
     });
 
     // Setup chart area
-    const container = d3.select('#visualization3');
-    container.selectAll('*').remove();
-
     const margin = {top: 40, right: 20, bottom: 80, left: 60};
-    const width = Math.max(1000, parseInt(container.style('width')) || 900) - margin.left - margin.right;
+    const width = 1000 - margin.left - margin.right;
     const height = 480 - margin.top - margin.bottom;
 
-    const svg = container.append('svg')
+    const svg = d3.select('#perceptive')
         .attr('width', width + margin.left + margin.right)
         .attr('height', height + margin.top + margin.bottom)
         .append('g')
@@ -99,7 +96,7 @@ d3.csv(DATA_PATH).then(function(rows) {
 
     const color = d3.scaleOrdinal()
         .domain(keys)
-        .range(['#1f76b481', '#ff7e0e6d', '#2ca02c6d']);
+        .range(['#1f77b4', '#ff7f0e', '#2ca02c']);
 
     // Axes
     svg.append('g')
@@ -232,6 +229,6 @@ d3.csv(DATA_PATH).then(function(rows) {
         .style('font-size','12px');
 
 }).catch(err => {
-    d3.select('#visualization3').append('div').text('Failed to load CSV. Open DevTools to see the error.');
+    d3.select('#perceptive').append('text').text('Failed to load CSV. Open DevTools to see the error.');
     console.error('CSV load error:', err);
 });
