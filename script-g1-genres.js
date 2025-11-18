@@ -104,22 +104,46 @@ d3.csv("merged_tracks.csv").then(data => {
         }
     })
     .on("click", (event, d) => {
-        selectedDot = d;
-        tooltipLocked = true;
+    // if the clicked dot is already selected, deselect it
+      if (selectedDot === d) {
+          selectedDot = null;
+          tooltipLocked = false;
+          tooltip.style("opacity", 0);
 
-        // dim other dots and highlight the clicked one
-        g.selectAll("circle.dot")
+          g.selectAll("circle.dot")
+            .attr("opacity", 1)
+            .attr("stroke", null)
+            .attr("stroke-width", 0);
+      } else {
+          // select clicked dot
+          selectedDot = d;
+          tooltipLocked = true;
+
+          g.selectAll("circle.dot")
             .attr("opacity", dot => dot === d ? 1 : 0.3)
             .attr("stroke", dot => dot === d ? "black" : null)
             .attr("stroke-width", dot => dot === d ? 2 : 0);
 
-        // show tooltip at click position (locks it)
-        tooltip.style("opacity", 1)
-                .html(`<strong>Track Name:</strong> "${d.track_name}" <br/><strong>Artist Name:</strong> ${d.artists_x}`)
-                .style("left", (event.pageX + 10) + "px")
-                .style("top", (event.pageY - 20) + "px");
+          tooltip.style("opacity", 1)
+                 .html(`<strong>Track Name:</strong> "${d.track_name}" <br/><strong>Artist Name:</strong> ${d.artists_x}`)
+                 .style("left", (event.pageX + 10) + "px")
+                 .style("top", (event.pageY - 20) + "px");
+      }
     });
 
+    // function to click anywhere else in whitespace to deselect dot
+    svg.on("click", (event) => {
+        const clickedElement = event.target;
+        if (!clickedElement.closest("circle.dot")) {
+            selectedDot = null;
+            tooltipLocked = false;
+            tooltip.style("opacity", 0);
+            g.selectAll("circle.dot")
+            .attr("opacity", 1)
+            .attr("stroke", null)
+            .attr("stroke-width", 0);
+        }
+    });
 
     // Compute summary statistics (mean + std) for each genre
     const stats = topGenres.map(genre => {
