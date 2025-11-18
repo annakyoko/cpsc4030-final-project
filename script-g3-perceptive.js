@@ -1,22 +1,20 @@
 // Triple/grouped bar chart: average valence, energy, danceability per popularity bucket (10 buckets)
-// Assumptions: CSV has numeric columns named `popularity`, `valence`, `energy`, `danceability`.
-// If your CSV uses slightly different names (e.g., `danceablity`), update the field names below.
-
-const DATA_PATH = "merged_tracks.csv";
 
 function toNumber(x) {
     const n = +x;
     return isNaN(n) ? null : n;
 }
 
-d3.csv(DATA_PATH).then(function(rows) {
+d3.csv("merged_tracks.csv").then(function(rows) {
     // Parse numeric fields
     const data = rows.map(d => ({
-        popularity: toNumber(d.popularity),
-        valence: toNumber(d.valence),
-        energy: toNumber(d.energy),
-        danceability: toNumber(d.danceability)
+        popularity: +d.popularity_x,
+        valence: +d.valence_x,
+        energy: +d.energy_x,
+        danceability: +d.danceability_x,
+        genre: d.track_genre
     })).filter(d => d.popularity !== null);
+
 
     if (!data.length) {
         d3.select('#perceptive').append('text').text('No numeric data found. Check CSV column names.');
@@ -66,9 +64,11 @@ d3.csv(DATA_PATH).then(function(rows) {
     });
 
     // Setup chart area
-    const margin = {top: 40, right: 20, bottom: 80, left: 60};
-    const width = 1000 - margin.left - margin.right;
-    const height = 480 - margin.top - margin.bottom;
+    const margin = {top: 80, right: 20, bottom: 80, left: 60};
+    const svgContainer = d3.select("#perceptive");
+    const width = svgContainer.node().clientWidth - margin.left - margin.right;
+    const height = svgContainer.node().clientHeight - margin.top - margin.bottom;
+
 
     const svg = d3.select('#perceptive')
         .attr('width', width + margin.left + margin.right)
@@ -198,12 +198,21 @@ d3.csv(DATA_PATH).then(function(rows) {
 
     // Legend
     const legend = svg.append('g')
-        .attr('transform', `translate(${width - 160}, -30)`);
+        //.attr('transform', `translate(${width - 160}, -30)`);
+        .attr('transform', `translate(${width - 300}, -50)`);
 
     keys.forEach((k, i) => {
-        const g = legend.append('g').attr('transform', `translate(0, ${i*18})`);
-        g.append('rect').attr('width', 14).attr('height', 14).attr('fill', color(k)).attr('stroke','#333');
-        g.append('text').attr('x',18).attr('y',12).text(k).style('font-size','12px');
+        const g = legend.append('g').attr('transform', `translate(${i*120}, 0)`);
+        g.append('rect')
+            .attr('width', 14)
+            .attr('height', 14)
+            .attr('fill', color(k))
+            .attr('stroke','#333');
+        g.append('text')
+            .attr('x',18)
+            .attr('y',12)
+            .text(k)
+            .style('font-size','12px');
     });
 
     // Trend lines (one per key) with points
