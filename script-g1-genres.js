@@ -74,30 +74,52 @@ d3.csv("merged_tracks.csv").then(data => {
     // Tooltip div
     const tooltip = d3.select("#tooltip");
 
-    // Draw points with tooltip
+    // variables for graph interaction
+    let selectedDot = null;
+    let tooltipLocked = false;
+
     g.append("g")
-        .selectAll("circle")
-        .data(topData)
-        .enter()
-        .append("circle")
-        .attr("class", "dot")
-        .attr("cx", d => x(d.track_genre) + x.bandwidth()/2 + jitter())
-        .attr("cy", d => y(d.release_year))
-        .attr("r", 5)
-        .attr("fill", d => color(d.track_genre))
-        .on("mouseover", (event, d) => {
-            tooltip.style("opacity", 1)
-                    .html(`<strong>${d.track_name}</strong>`)
-                    .style("left", (event.pageX + 10) + "px")
-                    .style("top", (event.pageY - 20) + "px");
-        })
-        .on("mousemove", (event) => {
-            tooltip.style("left", (event.pageX + 10) + "px")
-                    .style("top", (event.pageY - 20) + "px");
-        })
-        .on("mouseout", () => {
-            tooltip.style("opacity", 0);
-        });
+    .selectAll("circle")
+    .data(topData)
+    .enter()
+    .append("circle")
+    .attr("class", "dot")
+    .attr("cx", d => x(d.track_genre) + x.bandwidth()/2 + jitter())
+    .attr("cy", d => y(d.release_year))
+    .attr("r", 5)
+    .attr("fill", d => color(d.track_genre))
+    .on("mouseover", (event, d) => {
+        tooltip.style("opacity", 1)
+                .html(`<strong>Track Name:</strong> "${d.track_name}" <br/><strong>Artist Name:</strong> ${d.artists_x}`)
+                .style("left", (event.pageX + 10) + "px")
+                .style("top", (event.pageY - 20) + "px");
+    })
+    .on("mousemove", (event, d) => {
+        tooltip.style("left", (event.pageX + 10) + "px")
+                .style("top", (event.pageY - 20) + "px");
+    })
+    .on("mouseout", (event, d) => {
+        if (!tooltipLocked) {
+          tooltip.style("opacity", 0);
+        }
+    })
+    .on("click", (event, d) => {
+        selectedDot = d;
+        tooltipLocked = true;
+
+        // dim other dots and highlight the clicked one
+        g.selectAll("circle.dot")
+            .attr("opacity", dot => dot === d ? 1 : 0.3)
+            .attr("stroke", dot => dot === d ? "black" : null)
+            .attr("stroke-width", dot => dot === d ? 2 : 0);
+
+        // show tooltip at click position (locks it)
+        tooltip.style("opacity", 1)
+                .html(`<strong>Track Name:</strong> "${d.track_name}" <br/><strong>Artist Name:</strong> ${d.artists_x}`)
+                .style("left", (event.pageX + 10) + "px")
+                .style("top", (event.pageY - 20) + "px");
+    });
+
 
     // Compute summary statistics (mean + std) for each genre
     const stats = topGenres.map(genre => {
