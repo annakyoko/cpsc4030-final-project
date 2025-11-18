@@ -44,9 +44,9 @@ To expand our analysis we are also prepared to ask, “how will our patterns shi
 > In a future interaction, we will allow the view to select a genre and have each graph shift to show only the data for that genre. 
 
 
-# Evaluation: 
+## Evaluation: 
 
->
+> We plan to improve our dashboard by adding a 'genre filter' interaction. 
 
 
 
