@@ -17,11 +17,34 @@
 
     <h1>How have musical characteristics of popular tracks changed over the past century?</h1>
 
-    <svg id="genres"></svg>
+    <svg id="genres" width="900" height="500"></svg>
+    <svg id="technical" width="900" height="500"></svg>
+    <svg id="perceptive" width="900" height="500"></svg>
 
-    <svg id="technical"></svg>
+    <div id="tooltip" style="
+      position: absolute;
+      background-color: white;
+      border: 1px solid black;
+      padding: 5px 8px;
+      border-radius: 4px;
+      pointer-events: none;
+      opacity: 0;
+    "></div>
 
-    <svg id="perceptive"></svg>
+    <label for="genre-select">Choose a genre:</label>
+    <select id="genre-select">
+      <option value="">--All genres--</option>
+      <option value="hard-rock">hard-rock</option>
+      <option value="metal">metal</option>
+      <option value="punk">punk</option>
+      <option value="classical">classical</option>
+      <option value="hip-hop">hip-hop</option>
+      <option value="electronic">electronic</option>
+      <option value="alternative">alternative</option>
+      <option value="folk">folk</option>
+      <option value="pop">pop</option>
+      <option value="alt-rock">alt-rock</option>
+    </select>
 
     <script src="script-g1-genres.js"></script>
     <script src="script-g2-technical.js"></script>
