@@ -2,7 +2,7 @@
 // Assumptions: CSV has numeric columns named `popularity`, `valence`, `energy`, `danceability`.
 // If your CSV uses slightly different names (e.g., `danceablity`), update the field names below.
 
-const DATA_PATH = "CPSC 4030 Final Project Data/tracks.csv";
+const DATA_PATH = "merged_tracks.csv";
 
 function toNumber(x) {
     const n = +x;
@@ -265,3 +265,4 @@ d3.csv(DATA_PATH).then(function(rows) {
     d3.select('#perceptive').append('text').text('Failed to load CSV. Open DevTools to see the error.');
     console.error('CSV load error:', err);
 });
+
