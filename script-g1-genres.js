@@ -8,9 +8,19 @@ d3.csv("merged_tracks.csv").then(data => {
     data.forEach(d => d.release_year = +d.release_year);
 
     const svg = d3.select("#genres");
-    const width = +svg.attr("width") || 900;   // fallback width
-    const height = +svg.attr("height") || 500; // fallback height
-    const margin = { top: 40, right: 30, bottom: 120, left: 70 };
+    // const width = +svg.attr("width") || 900;   // fallback width
+    // const height = +svg.attr("height") || 500; // fallback height
+    const svgWidth = svg.node().clientWidth;
+    const svgHeight = svg.node().clientHeight;
+    
+    // margins
+    const margin = { top: 20, right: 20, bottom: 60, left: 60 };
+    const width = svgWidth - margin.left - margin.right;
+    const height = svgHeight - margin.top - margin.bottom;
+
+    // append a group for chart content
+    const g = svg.append("g")
+        .attr("transform", `translate(${margin.left},${margin.top})`);
 
     // Predefined genre order
     const topGenres = [
@@ -25,14 +35,15 @@ d3.csv("merged_tracks.csv").then(data => {
     // X scale (categorical)
     const x = d3.scaleBand()
         .domain(topGenres)
-        .range([margin.left, width - margin.right])
+        .range([0, width])
         .padding(0.4);
 
     // Y scale (years)
     const y = d3.scaleLinear()
         .domain(d3.extent(topData, d => d.release_year))
         .nice()
-        .range([height - margin.bottom, margin.top]);
+        //.range([height - margin.bottom, margin.top]);
+        .range([height, 0]);
 
     // Color scale
     const color = d3.scaleOrdinal()
@@ -40,17 +51,22 @@ d3.csv("merged_tracks.csv").then(data => {
         .range(d3.schemeCategory10);
 
     // X-axis
-    svg.append("g")
-        .attr("transform", `translate(0, ${height - margin.bottom})`)
+    g.append("g")
+        .attr("transform", `translate(0, ${height})`)
         .call(d3.axisBottom(x))
         .selectAll("text")
         .attr("transform", "rotate(-40)")
         .style("text-anchor", "end");
 
     // Y-axis (years, no commas)
-    svg.append("g")
-        .attr("transform", `translate(${margin.left},0)`)
+    // svg.append("g")
+        // .attr("transform", `translate(${margin.left},0)`)
+        // .call(d3.axisLeft(y).tickFormat(d3.format("d")));
+        // .attr("transform", `translate(${margin.left},0)`)  // only if you need margin shift
+        // .call(d3.axisLeft(y).tickFormat(d3.format("d")));
+    g.append("g")
         .call(d3.axisLeft(y).tickFormat(d3.format("d")));
+        
 
     // Jitter function for horizontal scatter
     const jitter = () => (Math.random() - 0.5) * x.bandwidth() * 0.7;
@@ -59,29 +75,29 @@ d3.csv("merged_tracks.csv").then(data => {
     const tooltip = d3.select("#tooltip");
 
     // Draw points with tooltip
-    svg.append("g")
+    g.append("g")
         .selectAll("circle")
         .data(topData)
         .enter()
         .append("circle")
-            .attr("class", "dot")
-            .attr("cx", d => x(d.track_genre) + x.bandwidth()/2 + jitter())
-            .attr("cy", d => y(d.release_year))
-            .attr("r", 5)
-            .attr("fill", d => color(d.track_genre))
-            .on("mouseover", (event, d) => {
-                tooltip.style("opacity", 1)
-                       .html(`<strong>${d.track_name}</strong>`)
-                       .style("left", (event.pageX + 10) + "px")
-                       .style("top", (event.pageY - 20) + "px");
-            })
-            .on("mousemove", (event) => {
-                tooltip.style("left", (event.pageX + 10) + "px")
-                       .style("top", (event.pageY - 20) + "px");
-            })
-            .on("mouseout", () => {
-                tooltip.style("opacity", 0);
-            });
+        .attr("class", "dot")
+        .attr("cx", d => x(d.track_genre) + x.bandwidth()/2 + jitter())
+        .attr("cy", d => y(d.release_year))
+        .attr("r", 5)
+        .attr("fill", d => color(d.track_genre))
+        .on("mouseover", (event, d) => {
+            tooltip.style("opacity", 1)
+                    .html(`<strong>${d.track_name}</strong>`)
+                    .style("left", (event.pageX + 10) + "px")
+                    .style("top", (event.pageY - 20) + "px");
+        })
+        .on("mousemove", (event) => {
+            tooltip.style("left", (event.pageX + 10) + "px")
+                    .style("top", (event.pageY - 20) + "px");
+        })
+        .on("mouseout", () => {
+            tooltip.style("opacity", 0);
+        });
 
     // Compute summary statistics (mean + std) for each genre
     const stats = topGenres.map(genre => {
@@ -98,39 +114,39 @@ d3.csv("merged_tracks.csv").then(data => {
     });
 
     // Draw clickable error bars
-svg.append("g")
-    .selectAll("line.error-bar")
-    .data(stats)
-    .enter()
-    .append("line")
-        .attr("class", "error-bar")
-        .attr("x1", d => x(d.genre) + x.bandwidth()/2)
-        .attr("x2", d => x(d.genre) + x.bandwidth()/2)
-        .attr("y1", d => y(d.min))
-        .attr("y2", d => y(d.max))
-        .attr("stroke", "black")
-        .attr("stroke-width", 2)
-        .style("cursor", "pointer") // show pointer on hover
-        .on("click", (event, d) => {
-            tooltip.style("opacity", 1)
-            .html(`
-                <strong>${d.genre}</strong><br/>
-                Mean Year: ${d.mean.toFixed(1)}<br/>
-                Std Dev: ${d.std.toFixed(1)}<br/>
-                Min: ${d.min.toFixed(0)}<br/>
-                Max: ${d.max.toFixed(0)}
-                `)
-                .style("left", (event.pageX + 10) + "px")
-                .style("top", (event.pageY - 20) + "px");
-        });
+    g.append("g")
+        .selectAll("line.error-bar")
+        .data(stats)
+        .enter()
+        .append("line")
+            .attr("class", "error-bar")
+            .attr("x1", d => x(d.genre) + x.bandwidth()/2)
+            .attr("x2", d => x(d.genre) + x.bandwidth()/2)
+            .attr("y1", d => y(d.min))
+            .attr("y2", d => y(d.max))
+            .attr("stroke", "black")
+            .attr("stroke-width", 2)
+            .style("cursor", "pointer") // show pointer on hover
+            .on("click", (event, d) => {
+                tooltip.style("opacity", 1)
+                .html(`
+                    <strong>${d.genre}</strong><br/>
+                    Mean Year: ${d.mean.toFixed(1)}<br/>
+                    Std Dev: ${d.std.toFixed(1)}<br/>
+                    Min: ${d.min.toFixed(0)}<br/>
+                    Max: ${d.max.toFixed(0)}
+                    `)
+                    .style("left", (event.pageX + 10) + "px")
+                    .style("top", (event.pageY - 20) + "px");
+            });
 
 
     // Draw mean points (white with black stroke)
-    svg.append("g")
-    .selectAll("circle.mean")
-    .data(stats)
-    .enter()
-    .append("circle")
+    g.append("g")
+        .selectAll("circle.mean")
+        .data(stats)
+        .enter()
+        .append("circle")
         .attr("cx", d => x(d.genre) + x.bandwidth()/2)
         .attr("cy", d => y(d.mean))
         .attr("r", 6)
@@ -148,26 +164,30 @@ svg.append("g")
                     Max: ${d.max.toFixed(0)}
                 `)
                 .style("left", (event.pageX + 10) + "px")
-                   .style("top", (event.pageY - 20) + "px");
-        });
-        // X-axis label
-svg.append("text")
-    .attr("class", "x-axis-label")
-    .attr("x", (width + margin.left - margin.right) / 2)  // center of the chart
-    .attr("y", height - 40)  // below the axis
-    .attr("text-anchor", "middle")
-    .attr("font-size", "16px")
-    .attr("font-weight", "bold")
-    .text("Genre");
+                .style("top", (event.pageY - 20) + "px");
+            });
+    // X-axis label
+    g.append("text")
+        .attr("class", "x-axis-label")
+        //.attr("x", (width + margin.left - margin.right) / 2)  // center of the chart
+        .attr("x", width /2)
+        //.attr("y", height - 40)  // below the axis
+        .attr("y", height + 70)
+        .attr("text-anchor", "middle")
+        .attr("font-size", "16px")
+        .attr("font-weight", "bold")
+        .text("Genre");
 
-// Y-axis label
-svg.append("text")
-    .attr("class", "y-axis-label")
-    .attr("transform", "rotate(-90)")
-    .attr("x", -(height - margin.top - margin.bottom) / 2 - margin.top)  // center of the y-axis
-    .attr("y", 20)  // distance from the axis
-    .attr("text-anchor", "middle")
-    .attr("font-size", "16px")
-    .attr("font-weight", "bold")
-    .text("Release Year");
+    // Y-axis label
+    g.append("text")
+        .attr("class", "y-axis-label")
+        .attr("transform", "rotate(-90)")
+        //.attr("x", -(height - margin.top - margin.bottom) / 2 - margin.top)  // center of the y-axis
+        //.attr("y", 20)  // distance from the axis
+        .attr("x", -height/2)
+        .attr("y", -margin.left + 20)
+        .attr("text-anchor", "middle")
+        .attr("font-size", "16px")
+        .attr("font-weight", "bold")
+        .text("Release Year");
 });

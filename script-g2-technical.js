@@ -1,13 +1,17 @@
 // this file is for the technical features graph
 
-// margins and dimensions
+// margins
 const margin = {top: 50, right: 50, bottom: 70, left: 80};
-const width = 900 - margin.left - margin.right;
-const height = 500 - margin.top - margin.bottom;
+
+// make svg
+const svgContainer = d3.select("#technical")
+
+// dimensions
+const width = svgContainer.node().clientWidth - margin.left - margin.right;
+const height = svgContainer.node().clientHeight - margin.top - margin.bottom;
 
 // append a group for margins on svg
-const svg = d3.select("#technical")
-    .append("g")
+const svg = svgContainer.append("g")
     .attr("transform", `translate(${margin.left},${margin.top})`);
 
 // scales --> domains set after svg loads
