@@ -1,19 +1,47 @@
 # Project Process Book
 
 ## "Your process book should include the following topics. Depending on your project type the amount of discussion you devote to each of them will vary:"
+
 ## Overview and Motivation: Provide an overview of the project goals and the motivation for it. Consider that this will be read by people who did not see your project proposal.
+
+To further the discussion on music trends and cultural reception, we begin our analysis of popularity and musical features. Our goal for this project will be to generate interactive graphs that, when viewed together, convey the characteristics of popular music and how it has changed over the past century. We will explore the correlation of popularity with technical and perceptive characteristics. We will also take this analysis with a filter for genres. 
 
 ## Related Work: Anything that inspired you, such as a paper, a website, visualizations we discussed in class, etc.
 
+>>>   NONE???
+
+
 ## Questions: What questions are you trying to answer? How did these questions evolve over the course of the project? What new questions did you consider in the course of your analysis?
+
+We began with the overarching question; “How have the musical characteristics of popular tracks changed over the past century?” We split this into two separate questions; “What are the (technical and perceptive) features of popular music” and “How have these features changes over time.” Naturally these two questions beget the three graphs we used. 
+We found that it was not feasible nor necessary to include all the features of our dataset, so we asked, “what features are significant.” This filter took away the features we were most interested in and left the more trivial ones (e.g. whether or not the track is acoustic, live, etc.). So, we shifted to “what features are audiophiles most interested in.”
+To expand our analysis we are also prepared to ask, “how will our patterns shift when we consider genre.”
+
 
 ## Data: Source, scraping method, cleanup, etc.
 
+>>>    ELLA?
+
+
 ## Exploratory Data Analysis: What visualizations did you use to initially look at your data? What insights did you gain? How did these insights inform your design?
+
+Diving right into things, we explored our data by plotting each feature against popularity and then against time. This gave us an idea of which features were trivial, and which gave us dramatic results. We did this again but with a genre filter, so we could see the differences across genres. 
+
 
 ## Design Evolution: What are the different visualizations you considered? Justify the design decisions you made using the perceptual and design principles you learned in the course. Did you deviate from your proposal?
 
+>>>   Visualization 1
+
+>>>   Visualization 2
+
+Visualization 3: The alternative design for this visualization was to replace the bars with boxplots. This would give the viewer substantially more information – a full spread for each bucket rather than only the average. This design, however, was too visually cluttered and added details that did not significantly contribute to the whole of the dashboard. 
+
+
 ## Implementation: Describe the intent and functionality of the interactive visualizations you implemented. Provide clear and well-referenced images showing the key design and interaction elements.
+The current interaction – the interaction for visualization 3 (perceptive features) – is used to visually isolate the features; to highlight the feature that the user is hovering over. Overall, the graph allows the view to see all three present features and how they change with popularity, and interact with each other. With the interaction, the viewer can focus on one feature at a time. 
+
+In a future interaction, we will allow the view to select a genre and have each graph shift to show only the data for that genre. 
+
 
 # Evaluation: What did you learn about the data by using your visualizations? How did you answer your questions? How well does your visualization work, and how could you further improve it?
 
