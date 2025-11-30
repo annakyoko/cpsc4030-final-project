@@ -51,12 +51,89 @@ d3.csv("merged_tracks.csv").then(data => {
         .range(d3.schemeCategory10);
 
     // X-axis
-    g.append("g")
+    const xAxis = g.append("g")
         .attr("transform", `translate(0, ${height})`)
         .call(d3.axisBottom(x))
-        .selectAll("text")
+        
+    // make x-axis labels clickable
+    xAxis.selectAll("text")
         .attr("transform", "rotate(-40)")
-        .style("text-anchor", "end");
+        .style("text-anchor", "end")
+        .style("cursor", "pointer")
+        .style("fill", "#333")
+        .on("mouseover", function() {
+            d3.select(this)
+                .style("fill", "#000")
+                .style("font-weight", "bold");
+        })
+        .on("mouseout", function(event, d) {
+            // check if genre is currently selected
+            const isSelected = selectedGenre === d;
+            d3.select(this)
+                .style("fill", isSelected ? "#000" : "#333")
+                .style("font-weight", isSelected ? "bold" : "normal");
+        })
+        .on("click", function(event, clickedGenre) {
+            event.stopPropagation();
+            
+            // if clicking the already-selected genre, deselect it
+            if (selectedGenre === clickedGenre) {
+                selectedGenre = null;
+                selectedDot = null;
+                tooltipLocked = false;
+                tooltip.style("opacity", 0);
+                
+                // reset dots
+                g.selectAll("circle.dot")
+                    .attr("opacity", 1)
+                    .attr("stroke", null)
+                    .attr("stroke-width", 0);
+                
+                // reset labels
+                xAxis.selectAll("text")
+                    .style("fill", "#333")
+                    .style("font-weight", "normal");
+
+                // dispatch event - genre deselected
+                window.dispatchEvent(new CustomEvent('genreSelected', { 
+                    detail: { genre: null } 
+                }));
+                console.log("Dispatched event: genre deselected");
+            } else {
+                // select new genre
+                selectedGenre = clickedGenre;
+                selectedDot = null;
+                tooltipLocked = false;
+                
+                // highlight dots in selected genre
+                g.selectAll("circle.dot")
+                    .attr("opacity", d => d.track_genre === clickedGenre ? 1 : 0.2)
+                    .attr("stroke", d => d.track_genre === clickedGenre ? "black" : null)
+                    .attr("stroke-width", d => d.track_genre === clickedGenre ? 1.5 : 0);
+                
+                // highlight selected label
+                xAxis.selectAll("text")
+                    .style("fill", d => d === clickedGenre ? "#000" : "#333")
+                    .style("font-weight", d => d === clickedGenre ? "bold" : "normal");
+                
+                // show tooltip w/ genre info
+                const genreData = topData.filter(d => d.track_genre === clickedGenre);
+                tooltip.style("opacity", 1)
+                    .html(`
+                        <strong>${clickedGenre}</strong><br/>
+                        Total Tracks: ${genreData.length}<br/>
+                        Click genre again to deselect
+                    `)
+                    .style("left", (event.pageX + 10) + "px")
+                    .style("top", (event.pageY - 20) + "px");
+
+                // dispatch event - genre selected
+                window.dispatchEvent(new CustomEvent('genreSelected', { 
+                    detail: { genre: clickedGenre } 
+                }));
+                console.log("Dispatched event: genre selected -", clickedGenre);
+            }
+        });
 
     // Y-axis (years, no commas)
     // svg.append("g")
@@ -76,6 +153,7 @@ d3.csv("merged_tracks.csv").then(data => {
 
     // variables for graph interaction
     let selectedDot = null;
+    let selectedGenre = null;
     let tooltipLocked = false;
 
     g.append("g")
@@ -110,10 +188,18 @@ d3.csv("merged_tracks.csv").then(data => {
           tooltipLocked = false;
           tooltip.style("opacity", 0);
 
-          g.selectAll("circle.dot")
-            .attr("opacity", 1)
-            .attr("stroke", null)
-            .attr("stroke-width", 0);
+          // if genre is selected, restore genre selection state
+            if (selectedGenre) {
+                g.selectAll("circle.dot")
+                    .attr("opacity", dot => dot.track_genre === selectedGenre ? 1 : 0.2)
+                    .attr("stroke", dot => dot.track_genre === selectedGenre ? "black" : null)
+                    .attr("stroke-width", dot => dot.track_genre === selectedGenre ? 1.5 : 0);
+            } else {
+                g.selectAll("circle.dot")
+                    .attr("opacity", 1)
+                    .attr("stroke", null)
+                    .attr("stroke-width", 0);
+            }
       } else {
           // select clicked dot
           selectedDot = d;
@@ -134,14 +220,26 @@ d3.csv("merged_tracks.csv").then(data => {
     // function to click anywhere else in whitespace to deselect dot
     svg.on("click", (event) => {
         const clickedElement = event.target;
-        if (!clickedElement.closest("circle.dot")) {
+        if (!clickedElement.closest("circle.dot") && !clickedElement.closest("text")) {
             selectedDot = null;
+            selectedGenre = null;
             tooltipLocked = false;
             tooltip.style("opacity", 0);
+            
             g.selectAll("circle.dot")
-            .attr("opacity", 1)
-            .attr("stroke", null)
-            .attr("stroke-width", 0);
+                .attr("opacity", 1)
+                .attr("stroke", null)
+                .attr("stroke-width", 0);
+            
+            // Reset all x-axis labels
+            xAxis.selectAll("text")
+                .style("fill", "#333")
+                .style("font-weight", "normal");
+
+            window.dispatchEvent(new CustomEvent('genreSelected', { 
+            detail: { genre: null } 
+            }));
+            console.log("Dispatched event: genre deselected (whitespace click)");
         }
     });
 

@@ -53,7 +53,8 @@ yDropdown.selectAll("option")
     .text(d => d)
     .attr("value", d => d);
 
-const genreDropdown = d3.select("#genre-select");
+// global variable to track genre
+let globalSelectedGenre = null;
 
 // load CSV
 d3.csv("merged_tracks.csv").then(data => {
@@ -92,15 +93,18 @@ d3.csv("merged_tracks.csv").then(data => {
     // function to update chart
     function updateChart() {
         const selectedAttr = yDropdown.node().value;
-        const selectedGenre = genreDropdown.node().value;
+        const selectedGenre = globalSelectedGenre;
 
         // update y-axis label
         yAxisLabel.text(selectedAttr.charAt(0).toUpperCase() + selectedAttr.slice(1));
 
         // filter by genre if selected
         let filteredData = data;
-        if (selectedGenre) {
+        if (selectedGenre && selectedGenre.trim() !== "") {
             filteredData = data.filter(d => d.genre === selectedGenre);
+            console.log(`Filtering to genre: ${selectedGenre}, found ${filteredData.length} tracks`);
+        } else {
+            console.log(`Showing all genres: ${filteredData.length} tracks`);
         }
 
         const aggData = aggregateByYear(filteredData, selectedAttr)
@@ -108,6 +112,12 @@ d3.csv("merged_tracks.csv").then(data => {
 
         console.log("Aggregated data points:", aggData.length);
         console.log("Sample aggregated data:", aggData.slice(0, 5));
+
+        // Check if we have data
+        if (aggData.length === 0) {
+            console.warn("No data to display after filtering!");
+            return;
+        }
 
         // update y-axis domain dynamically
         const yMin = d3.min(aggData, d => d.y);
@@ -122,10 +132,19 @@ d3.csv("merged_tracks.csv").then(data => {
         // bind data to circles
         const circles = svg.selectAll("circle").data(aggData, d => d.year);
 
+        // exit - remove old circles
+        circles.exit()
+            .transition()
+            .duration(500)
+            .attr("r", 0)
+            .remove();
+
         // enter + merge
         const merged = circles.enter()
             .append("circle")
-            .attr("r", 5)
+            .attr("r", 0)
+            .attr("cx", d => xScale(d.year))
+            .attr("cy", d => yScale(d.y))
             .merge(circles);
 
         // transition attributes
@@ -133,6 +152,7 @@ d3.csv("merged_tracks.csv").then(data => {
             .duration(500)
             .attr("cx", d => xScale(d.year))
             .attr("cy", d => yScale(d.y))
+            .attr("r", 5)
             .attr("fill", d => colorScale(d.popularity));
 
         // attach tooltip events OUTSIDE transition
@@ -155,17 +175,20 @@ d3.csv("merged_tracks.csv").then(data => {
             .on("mouseout", () => {
                 d3.select("#tooltip").style("opacity", 0);
             });
-
-        // remove old circles
-        circles.exit().remove();
     }
 
     // initial render
     yDropdown.property("value", "duration");
     updateChart();
 
-    // update when dropdowns change
+    // update when y-dropdown changes
     yDropdown.on("change", updateChart);
-    genreDropdown.on("change", updateChart);
+
+    // LISTEN FOR GENRE SELECTION EVENTS FROM GRAPH 1
+    window.addEventListener('genreSelected', function(e) {
+        globalSelectedGenre = e.detail.genre; // Update the global variable
+        console.log("Technical graph received genre:", globalSelectedGenre);
+        updateChart(); // Re-render with new genre filter
+    });
 
 });
