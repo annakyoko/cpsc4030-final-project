@@ -118,6 +118,27 @@ d3.csv("merged_tracks.csv").then(function(rows) {
         .style('font-weight','600')
         .text('Average (0–1 scale)');
 
+    // y-axis label
+    svg.append('text')
+        .attr('transform', 'rotate(-90)')
+        .attr('x', -height / 2)
+        .attr('y', -margin.left + 15)
+        .attr('text-anchor', 'middle')
+        .attr('fill', '#000')
+        .style('font-size', '14px')
+        .style('font-weight', '600')
+        .text('Average Feature Value (0–1 scale)');
+
+    // x-axis label
+    svg.append('text')
+        .attr('x', width / 2)
+        .attr('y', height + margin.bottom - 10)
+        .attr('text-anchor', 'middle')
+        .attr('fill', '#000')
+        .style('font-size', '14px')
+        .style('font-weight', '600')
+        .text('Popularity Range');
+
     // Bars
     const group = svg.selectAll('g.bucket')
         .data(bucketData)
