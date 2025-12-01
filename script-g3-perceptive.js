@@ -1,3 +1,5 @@
+// this file is for the perceptive features graph (graph 3)
+
 // Triple/grouped bar chart: average valence, energy, danceability per popularity bucket (10 buckets)
 
 function toNumber(x) {
@@ -96,7 +98,7 @@ d3.csv("merged_tracks.csv").then(function(rows) {
 
     const color = d3.scaleOrdinal()
         .domain(keys)
-        .range(['#1f77b4', '#ff7f0e', '#2ca02c']);
+        .range(['#8338ec', '#fb5607', '#06a77d']);
 
     // Axes
     svg.append('g')

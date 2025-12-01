@@ -1,3 +1,5 @@
+// this file is for the genres graph (graph 1)
+
 // Load the CSV
 d3.csv("merged_tracks.csv").then(data => {
 
@@ -45,10 +47,24 @@ d3.csv("merged_tracks.csv").then(data => {
         //.range([height - margin.bottom, margin.top]);
         .range([height, 0]);
 
-    // Color scale
+    // cohesive color pallette to go with other graphs
+    const genreColors = {
+        "hard-rock": "#e63946",
+        "metal": "#6a0572",
+        "punk": "#ff006e",
+        "classical": "#8338ec",
+        "hip-hop": "#fb5607",
+        "electronic": "#3a86ff",
+        "alternative": "#06a77d",
+        "folk": "#52b788",
+        "pop": "#ff006e",
+        "alt-rock": "#4361ee"
+    };
+
+    // color scale
     const color = d3.scaleOrdinal()
         .domain(topGenres)
-        .range(d3.schemeCategory10);
+        .range(topGenres.map(g => genreColors[g]));
 
     // X-axis
     const xAxis = g.append("g")

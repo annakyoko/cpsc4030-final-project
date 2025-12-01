@@ -17,7 +17,45 @@ const svg = svgContainer.append("g")
 // scales --> domains set after svg loads
 const xScale = d3.scaleLinear().range([0, width]);
 const yScale = d3.scaleLinear().range([height, 0]);
-const colorScale = d3.scaleLinear().range(["#eeeeee", "#1f77b4"]); // light gray --> blue
+
+// cohesive color scheme - 5 level step gradient
+const popularityThresholds = [0, 20, 40, 60, 80, 100];
+const defaultColors = ["#f0f0f0", "#bdd7e7", "#6baed6", "#3182bd", "#08519c"];
+
+// genre color mapping - matches genre graph
+const genreColors = {
+    "hard-rock": "#e63946",
+    "metal": "#6a0572",
+    "punk": "#ff006e",
+    "classical": "#8338ec",
+    "hip-hop": "#fb5607",
+    "electronic": "#3a86ff",
+    "alternative": "#06a77d",
+    "folk": "#52b788",
+    "pop": "#ff006e",
+    "alt-rock": "#4361ee"
+};
+
+// function to create stepped colors for a base color
+function createSteppedColors(baseColor) {
+    const base = d3.rgb(baseColor);
+    return [
+        base.brighter(1.5).toString(),
+        base.brighter(0.8).toString(),
+        baseColor,
+        base.darker(0.5).toString(),
+        base.darker(1.2).toString()
+    ];
+}
+
+// function to get color based on popularity (stepped)
+function getPopularityColor(popularity, colors) {
+    if (popularity <= 20) return colors[0];
+    if (popularity <= 40) return colors[1];
+    if (popularity <= 60) return colors[2];
+    if (popularity <= 80) return colors[3];
+    return colors[4];
+}
 
 // axes
 const xAxis = svg.append("g")
@@ -42,6 +80,28 @@ const yAxisLabel = svg.append("text")
     .attr("font-weight", "bold")
     .attr("id", "y-axis-label")
     .text("Duration");
+
+// create legend for popularity levels
+const legend = svg.append("g")
+    .attr("id", "popularity-legend")
+    .attr("transform", `translate(${width - 120}, 20)`);
+
+legend.append("text")
+    .attr("x", 0)
+    .attr("y", -10)
+    .attr("font-size", "12px")
+    .attr("font-weight", "bold")
+    .text("Popularity");
+
+const legendData = [
+    { range: "0-20", color: defaultColors[0] },
+    { range: "21-40", color: defaultColors[1] },
+    { range: "41-60", color: defaultColors[2] },
+    { range: "61-80", color: defaultColors[3] },
+    { range: "81-100", color: defaultColors[4] }
+];
+
+let currentLegendColors = defaultColors;
 
 // dropdowns
 const yAttributes = ["duration", "tempo", "time_signature", "explicit", "loudness"];
@@ -125,9 +185,20 @@ d3.csv("merged_tracks.csv").then(data => {
         yScale.domain([yMin, yMax]);
         yAxis.transition().duration(500).call(d3.axisLeft(yScale));
 
-        // update color scale based on popularity
-        const popMax = d3.max(aggData, d => d.popularity);
-        colorScale.domain([0, popMax]);
+        // determine colors based on genre selection
+        let colorsToUse;
+        
+        if (selectedGenre && genreColors[selectedGenre]) {
+            // use stepped colors based on genre
+            colorsToUse = createSteppedColors(genreColors[selectedGenre]);
+        } else {
+            // use default gradient
+            colorsToUse = defaultColors;
+        }
+
+        // update legend
+        currentLegendColors = colorsToUse;
+        updateLegend();
 
         // bind data to circles
         const circles = svg.selectAll("circle").data(aggData, d => d.year);
@@ -153,7 +224,9 @@ d3.csv("merged_tracks.csv").then(data => {
             .attr("cx", d => xScale(d.year))
             .attr("cy", d => yScale(d.y))
             .attr("r", 5)
-            .attr("fill", d => colorScale(d.popularity));
+            .attr("fill", d => getPopularityColor(d.popularity, colorsToUse))
+            .attr("stroke", "#333")
+            .attr("stroke-width", 0.5);
 
         // attach tooltip events OUTSIDE transition
         merged
@@ -177,18 +250,44 @@ d3.csv("merged_tracks.csv").then(data => {
             });
     }
 
+    // fucntion to update legend
+    function updateLegend() {
+        // remove old legend stuff
+        legend.selectAll(".legend-item").remove();
+
+        // add new legend items
+        legendData.forEach((d, i) => {
+            const item = legend.append("g")
+                .attr("class", "legend-item")
+                .attr("transform", `translate(0, ${i * 20})`);
+
+            item.append("rect")
+                .attr("width", 15)
+                .attr("height", 15)
+                .attr("fill", currentLegendColors[i])
+                .attr("stroke", "#333")
+                .attr("stroke-width", 0.5);
+
+            item.append("text")
+                .attr("x", 20)
+                .attr("y", 12)
+                .attr("font-size", "11px")
+                .text(d.range);
+        });
+    }
+
     // initial render
     yDropdown.property("value", "duration");
+    updateLegend(); // init legend
     updateChart();
 
     // update when y-dropdown changes
     yDropdown.on("change", updateChart);
 
-    // LISTEN FOR GENRE SELECTION EVENTS FROM GRAPH 1
     window.addEventListener('genreSelected', function(e) {
-        globalSelectedGenre = e.detail.genre; // Update the global variable
+        globalSelectedGenre = e.detail.genre; // update the global variable
         console.log("Technical graph received genre:", globalSelectedGenre);
-        updateChart(); // Re-render with new genre filter
+        updateChart(); // re-render with new genre filter
     });
 
 });
