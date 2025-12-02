@@ -73,7 +73,7 @@ function updateChart(filterGenre = null) {
     d3.select('#perceptive').selectAll('*').remove();
 
     // Setup chart area - use stored dimensions to keep consistent
-    const margin = {top: 60, right: 20, bottom: 80, left: 60};
+    const margin = {top: 35, right: 20, bottom: 80, left: 60};
     const svgContainer = d3.select("#perceptive");
     
     // Store dimensions globally on first run to keep them consistent
@@ -383,7 +383,7 @@ d3.csv("merged_tracks.csv").then(function(rows) {
     });
 
     // set global y-scale based on full dataset
-    const margin = {top: 60, right: 20, bottom: 80, left: 60};
+    const margin = {top: 35, right: 20, bottom: 80, left: 60};
     const svgContainer = d3.select("#perceptive");
     const width = svgContainer.node().clientWidth - margin.left - margin.right;
     const height = svgContainer.node().clientHeight - margin.top - margin.bottom;
