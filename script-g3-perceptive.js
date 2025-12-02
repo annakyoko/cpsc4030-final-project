@@ -7,25 +7,29 @@ function toNumber(x) {
     return isNaN(n) ? null : n;
 }
 
-d3.csv("merged_tracks.csv").then(function(rows) {
-    // Parse numeric fields
-    const data = rows.map(d => ({
-        popularity: +d.popularity_x,
-        valence: +d.valence_x,
-        energy: +d.energy_x,
-        danceability: +d.danceability_x,
-        genre: d.track_genre
-    })).filter(d => d.popularity !== null);
+// Store the full dataset globally so we can filter it
+let fullData = [];
+let currentGenre = null;
+let globalYScale = null; // Store the y-scale globally to keep it consistent
 
+function updateChart(filterGenre = null) {
+    // Filter data by genre if one is selected
+    const filteredData = filterGenre 
+        ? fullData.filter(d => d.genre === filterGenre)
+        : fullData;
 
-    if (!data.length) {
-        d3.select('#perceptive').append('text').text('No numeric data found. Check CSV column names.');
-        console.error('No numeric rows after parsing.');
+    if (!filteredData.length) {
+        d3.select('#perceptive').selectAll('*').remove();
+        d3.select('#perceptive').append('text')
+            .attr('x', 300)
+            .attr('y', 200)
+            .attr('text-anchor', 'middle')
+            .text(`No data found for genre: ${filterGenre}`);
         return;
     }
 
-    // Determine popularity domain
-    const pops = data.map(d => d.popularity);
+    // Determine popularity domain from filtered data
+    const pops = filteredData.map(d => d.popularity);
     const popMin = d3.min(pops);
     const popMax = d3.max(pops);
     const range = popMax - popMin || 1;
@@ -39,7 +43,7 @@ d3.csv("merged_tracks.csv").then(function(rows) {
         sumDance: 0
     }));
 
-    data.forEach(d => {
+    filteredData.forEach(d => {
         // bucket index 0..9
         let idx = Math.floor((d.popularity - popMin) / range * 10);
         if (idx < 0) idx = 0;
@@ -65,18 +69,41 @@ d3.csv("merged_tracks.csv").then(function(rows) {
         };
     });
 
-    // Setup chart area
+    // Clear existing chart
+    d3.select('#perceptive').selectAll('*').remove();
+
+    // Setup chart area - use stored dimensions to keep consistent
     const margin = {top: 80, right: 20, bottom: 80, left: 60};
     const svgContainer = d3.select("#perceptive");
-    const width = svgContainer.node().clientWidth - margin.left - margin.right;
-    const height = svgContainer.node().clientHeight - margin.top - margin.bottom;
-
+    
+    // Store dimensions globally on first run to keep them consistent
+    if (!window.perceptiveChartDimensions) {
+        window.perceptiveChartDimensions = {
+            width: svgContainer.node().clientWidth - margin.left - margin.right,
+            height: svgContainer.node().clientHeight - margin.top - margin.bottom
+        };
+    }
+    
+    const width = window.perceptiveChartDimensions.width;
+    const height = window.perceptiveChartDimensions.height;
 
     const svg = d3.select('#perceptive')
         .attr('width', width + margin.left + margin.right)
         .attr('height', height + margin.top + margin.bottom)
         .append('g')
         .attr('transform', `translate(${margin.left},${margin.top})`);
+
+    // add title showing current filter
+    if (filterGenre) {
+        svg.append('text')
+            .attr('x', width / 2)
+            .attr('y', -50)
+            .attr('text-anchor', 'middle')
+            .attr('fill', '#333')
+            .style('font-size', '16px')
+            .style('font-weight', '600')
+            .text(`Filtered by Genre: ${filterGenre}`);
+    }
 
     const groups = bucketData.map(d => d.label);
     const keys = ['valence','energy','danceability'];
@@ -91,7 +118,8 @@ d3.csv("merged_tracks.csv").then(function(rows) {
         .range([0, x0.bandwidth()])
         .padding(0.05);
 
-    const y = d3.scaleLinear()
+    // Use global y-scale if it exists, otherwise create it from full dataset
+    const y = globalYScale || d3.scaleLinear()
         .domain([0, d3.max(bucketData, d => Math.max(d.valence, d.energy, d.danceability)) || 1])
         .nice()
         .range([height, 0]);
@@ -111,13 +139,7 @@ d3.csv("merged_tracks.csv").then(function(rows) {
 
     svg.append('g')
         .attr('class','y-axis')
-        .call(d3.axisLeft(y).ticks(6));
-
-    svg.append('text')
-        .attr('x', -margin.left + 4)
-        .attr('y', -10)
-        .attr('fill', '#000')
-        .style('font-weight','600')
+        .call(d3.axisLeft(y).ticks(10));
 
     // y-axis label
     svg.append('text')
@@ -220,8 +242,7 @@ d3.csv("merged_tracks.csv").then(function(rows) {
 
     // Legend
     const legend = svg.append('g')
-        //.attr('transform', `translate(${width - 160}, -30)`);
-        .attr('transform', `translate(${width - 300}, -50)`);
+        .attr('transform', `translate(${width - 300}, -45)`);
 
     keys.forEach((k, i) => {
         const g = legend.append('g').attr('transform', `translate(${i*120}, 0)`);
@@ -281,7 +302,9 @@ d3.csv("merged_tracks.csv").then(function(rows) {
     });
 
     // Tooltip
-    const tooltip = d3.select('body').append('div')
+    const tooltip = d3.select('body').selectAll('.perceptive-tooltip').data([0])
+        .join('div')
+        .attr('class', 'perceptive-tooltip')
         .style('position','absolute')
         .style('background','#fff')
         .style('padding','6px 8px')
@@ -291,9 +314,87 @@ d3.csv("merged_tracks.csv").then(function(rows) {
         .style('display','none')
         .style('pointer-events','none')
         .style('font-size','12px');
+}
+
+// init load
+d3.csv("merged_tracks.csv").then(function(rows) {
+    // parse numeric fields and store globally
+    fullData = rows.map(d => ({
+        popularity: +d.popularity_x,
+        valence: +d.valence_x,
+        energy: +d.energy_x,
+        danceability: +d.danceability_x,
+        genre: d.track_genre
+    })).filter(d => d.popularity !== null);
+
+    if (!fullData.length) {
+        d3.select('#perceptive').append('text').text('No numeric data found. Check CSV column names.');
+        console.error('No numeric rows after parsing.');
+        return;
+    }
+
+    // calc global y-scale from all data (before filtering)
+    const pops = fullData.map(d => d.popularity);
+    const popMin = d3.min(pops);
+    const popMax = d3.max(pops);
+    const range = popMax - popMin || 1;
+
+    // prep buckets from full dataset
+    const buckets = Array.from({length:10}, (_,i) => ({
+        i,
+        count: 0,
+        sumValence: 0,
+        sumEnergy: 0,
+        sumDance: 0
+    }));
+
+    fullData.forEach(d => {
+        let idx = Math.floor((d.popularity - popMin) / range * 10);
+        if (idx < 0) idx = 0;
+        if (idx > 9) idx = 9;
+        const b = buckets[idx];
+        b.count += 1;
+        if (d.valence != null) b.sumValence += d.valence;
+        if (d.energy != null) b.sumEnergy += d.energy;
+        if (d.danceability != null) b.sumDance += d.danceability;
+    });
+
+    const bucketData = buckets.map((b, i) => {
+        const bucketLow = popMin + (i * range / 10);
+        const bucketHigh = popMin + ((i+1) * range / 10);
+        return {
+            bucket: i,
+            label: `${Math.round(bucketLow)}–${Math.round(bucketHigh)}`,
+            count: b.count,
+            valence: b.count ? (b.sumValence / b.count) : 0,
+            energy: b.count ? (b.sumEnergy / b.count) : 0,
+            danceability: b.count ? (b.sumDance / b.count) : 0
+        };
+    });
+
+    // set global y-scale based on full dataset
+    const margin = {top: 80, right: 20, bottom: 80, left: 60};
+    const svgContainer = d3.select("#perceptive");
+    const width = svgContainer.node().clientWidth - margin.left - margin.right;
+    const height = svgContainer.node().clientHeight - margin.top - margin.bottom;
+
+    // force y-scale to always be 0-1 since these are normalized features
+    globalYScale = d3.scaleLinear()
+        .domain([0, 1])
+        .range([height, 0]);
+
+    // draw initial chart with all data
+    updateChart(null);
+
+    // listen for genre filter from genres graph
+    window.addEventListener('genreSelected', function(event) {
+        const selectedGenre = event.detail.genre;
+        currentGenre = selectedGenre;
+        console.log("Perceptive graph received genre:", selectedGenre);
+        updateChart(selectedGenre);
+    });
 
 }).catch(err => {
     d3.select('#perceptive').append('text').text('Failed to load CSV. Open DevTools to see the error.');
     console.error('CSV load error:', err);
 });
-
