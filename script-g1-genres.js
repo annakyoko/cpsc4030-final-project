@@ -16,7 +16,7 @@ d3.csv("merged_tracks.csv").then(data => {
     const svgHeight = svg.node().clientHeight;
     
     // margins
-    const margin = { top: 20, right: 20, bottom: 60, left: 60 };
+    const margin = { top: 20, right: 20, bottom: 80, left: 60 };
     const width = svgWidth - margin.left - margin.right;
     const height = svgHeight - margin.top - margin.bottom;
 
@@ -329,9 +329,7 @@ d3.csv("merged_tracks.csv").then(data => {
     // X-axis label
     g.append("text")
         .attr("class", "x-axis-label")
-        //.attr("x", (width + margin.left - margin.right) / 2)  // center of the chart
         .attr("x", width /2)
-        //.attr("y", height - 40)  // below the axis
         .attr("y", height + 70)
         .attr("text-anchor", "middle")
         .attr("font-size", "16px")
@@ -342,8 +340,6 @@ d3.csv("merged_tracks.csv").then(data => {
     g.append("text")
         .attr("class", "y-axis-label")
         .attr("transform", "rotate(-90)")
-        //.attr("x", -(height - margin.top - margin.bottom) / 2 - margin.top)  // center of the y-axis
-        //.attr("y", 20)  // distance from the axis
         .attr("x", -height/2)
         .attr("y", -margin.left + 20)
         .attr("text-anchor", "middle")

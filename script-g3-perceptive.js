@@ -73,7 +73,7 @@ function updateChart(filterGenre = null) {
     d3.select('#perceptive').selectAll('*').remove();
 
     // Setup chart area - use stored dimensions to keep consistent
-    const margin = {top: 80, right: 20, bottom: 80, left: 60};
+    const margin = {top: 60, right: 20, bottom: 80, left: 60};
     const svgContainer = d3.select("#perceptive");
     
     // Store dimensions globally on first run to keep them consistent
@@ -93,11 +93,11 @@ function updateChart(filterGenre = null) {
         .append('g')
         .attr('transform', `translate(${margin.left},${margin.top})`);
 
-    // add title showing current filter
+    // Add title showing current filter
     if (filterGenre) {
         svg.append('text')
             .attr('x', width / 2)
-            .attr('y', -50)
+            .attr('y', -35)
             .attr('text-anchor', 'middle')
             .attr('fill', '#333')
             .style('font-size', '16px')
@@ -234,15 +234,25 @@ function updateChart(filterGenre = null) {
         .data(bucketData)
         .enter().append('text')
         .attr('x', d => x0(d.label) + x0.bandwidth()/2)
-        .attr('y', height + 55)
+        .attr('y', height + 45)
         .attr('text-anchor','middle')
         .attr('fill','#444')
-        .style('font-size','11px')
-        .text(d => `${d.count} tracks`);
+        .style('font-size','9px')
+        .text(d => `n=${d.count}`);
+
+    // add label for what counts represent
+    svg.append('text')
+        .attr('x', width)
+        .attr('y', height + margin.bottom - 10)
+        .attr('text-anchor', 'end') 
+        .attr('fill', '#666')
+        .style('font-size', '10px')
+        .style('font-style', 'italic')
+        .text('(n = number of tracks in range)');
 
     // Legend
     const legend = svg.append('g')
-        .attr('transform', `translate(${width - 300}, -45)`);
+        .attr('transform', `translate(${width - 300}, -30)`);
 
     keys.forEach((k, i) => {
         const g = legend.append('g').attr('transform', `translate(${i*120}, 0)`);
@@ -373,7 +383,7 @@ d3.csv("merged_tracks.csv").then(function(rows) {
     });
 
     // set global y-scale based on full dataset
-    const margin = {top: 80, right: 20, bottom: 80, left: 60};
+    const margin = {top: 60, right: 20, bottom: 80, left: 60};
     const svgContainer = d3.select("#perceptive");
     const width = svgContainer.node().clientWidth - margin.left - margin.right;
     const height = svgContainer.node().clientHeight - margin.top - margin.bottom;
