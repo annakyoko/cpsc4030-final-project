@@ -118,7 +118,6 @@ d3.csv("merged_tracks.csv").then(function(rows) {
         .attr('y', -10)
         .attr('fill', '#000')
         .style('font-weight','600')
-        .text('Average (0–1 scale)');
 
     // y-axis label
     svg.append('text')
