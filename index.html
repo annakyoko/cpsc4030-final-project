@@ -104,6 +104,16 @@
     <h1>How have musical characteristics of popular tracks changed over the past century?</h1>
 
     <div id="controls">
+      <!-- time slider -->
+      <div style="margin-bottom: 15px;">
+        <label for="time-slider" style="display: block; margin-bottom: 5px;">Time Range:</label>
+        <input type="range" id="time-slider" min="1920" max="2020" value="1920" step="5" 
+              style="width: 300px; vertical-align: middle;">
+        <span id="time-display" style="margin-left: 10px; font-weight: bold;">1920 - 2020</span>
+      </div>
+    </div>
+
+    <div id="controls">
       <label for="y-dropdown">Select Y-axis attribute:</label>
       <select id="y-dropdown"></select>
     </div>
