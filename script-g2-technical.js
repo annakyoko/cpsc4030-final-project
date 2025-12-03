@@ -20,17 +20,18 @@ const yScale = d3.scaleLinear().range([height, 0]);
 
 // genre color mapping - matches genre graph
 const genreColors = {
-    "hard-rock": "#e63946",
+    "hard-rock": "#ff2e2e",
     "metal": "#6a0572",
     "punk": "#ff006e",
     "classical": "#8338ec",
-    "hip-hop": "#fb5607",
+    "hip-hop": "#ff7f3f",
     "electronic": "#3a86ff",
-    "alternative": "#06a77d",
-    "folk": "#52b788",
-    "pop": "#ff006e",
+    "alternative": "#7ce04d",
+    "folk": "#f4d35e",
+    "pop": "#9381ff",
     "alt-rock": "#4361ee"
 };
+
 
 // axes
 const xAxis = svg.append("g")
