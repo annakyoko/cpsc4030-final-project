@@ -126,7 +126,7 @@ function updateChart(filterGenre = null) {
 
     const color = d3.scaleOrdinal()
         .domain(keys)
-        .range(['#8338ec', '#fb5607', '#06a77d']);
+        .range(['#00d68f', '#ff3f5e', '#00b0ff']);
 
     // Axes
     svg.append('g')
