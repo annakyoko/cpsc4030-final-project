@@ -11,6 +11,7 @@ function toNumber(x) {
 let fullData = [];
 let currentGenre = null;
 let globalYScale = null; // Store the y-scale globally to keep it consistent
+let selectedBucket = null; // track selected bucket
 
 function updateChart(filterGenre = null) {
     // Filter data by genre if one is selected
@@ -62,6 +63,8 @@ function updateChart(filterGenre = null) {
         return {
             bucket: i,
             label: `${Math.round(bucketLow)}–${Math.round(bucketHigh)}`,
+            popMin: bucketLow,
+            popMax: bucketHigh,
             count: b.count,
             valence: b.count ? (b.sumValence / b.count) : 0,
             energy: b.count ? (b.sumEnergy / b.count) : 0,
@@ -170,7 +173,15 @@ function updateChart(filterGenre = null) {
         .attr('transform', d => `translate(${x0(d.label)},0)`);
 
     group.selectAll('rect')
-        .data(d => keys.map(key => ({key, value: d[key], count: d.count, label: d.label})))
+        .data(d => keys.map(key => ({
+            key, 
+            value: d[key], 
+            count: d.count, 
+            label: d.label,
+            popMin: d.popMin,
+            popMax: d.popMax,
+            bucketIndex: d.bucket
+        })))
         .enter().append('rect')
         .attr('class', d => `bar bar-${d.key}`)
         .attr('x', d => x1(d.key))
@@ -178,8 +189,41 @@ function updateChart(filterGenre = null) {
         .attr('width', x1.bandwidth())
         .attr('height', d => height - y(d.value))
         .attr('fill', d => color(d.key))
-        .attr('stroke', '#333')
-        .attr('stroke-width', 0.2)
+        .attr('stroke', d => selectedBucket === d.bucketIndex ? '#000' : '#333')
+        .attr('stroke-width', d => selectedBucket === d.bucketIndex ? 2.5 : 0.2)
+        .style('cursor', 'pointer')
+        .on('click', function(event, d) {
+            event.stopPropagation();
+            
+            // Toggle selection
+            if (selectedBucket === d.bucketIndex) {
+                selectedBucket = null;
+                // Dispatch event to clear highlights
+                window.dispatchEvent(new CustomEvent('popularityBucketSelected', {
+                    detail: { popMin: null, popMax: null }
+                }));
+                
+                // Reset all bar strokes
+                d3.selectAll('rect.bar')
+                    .attr('stroke', '#333')
+                    .attr('stroke-width', 0.2);
+            } else {
+                selectedBucket = d.bucketIndex;
+                // Dispatch event with popularity range
+                window.dispatchEvent(new CustomEvent('popularityBucketSelected', {
+                    detail: { 
+                        popMin: d.popMin, 
+                        popMax: d.popMax,
+                        genre: currentGenre 
+                    }
+                }));
+                
+                // Highlight selected bucket bars
+                d3.selectAll('rect.bar')
+                    .attr('stroke', barData => barData.bucketIndex === d.bucketIndex ? '#000' : '#333')
+                    .attr('stroke-width', barData => barData.bucketIndex === d.bucketIndex ? 2.5 : 0.2);
+            }
+        })
         .on('mouseover', function(event, d) {
             const hoveredKey = d.key;
             
@@ -211,7 +255,7 @@ function updateChart(filterGenre = null) {
             });
             
             tooltip.style('display','block')
-                .html(`<strong>${d.key}</strong><br/>avg: ${d.value.toFixed(3)}<br/>count: ${d.count}`)
+                .html(`<strong>${d.key}</strong><br/>avg: ${d.value.toFixed(3)}<br/>count: ${d.count}<br/><em>Click to filter other graphs</em>`)
                 .style('left', (event.pageX + 10) + 'px')
                 .style('top', (event.pageY + 10) + 'px');
         })
@@ -324,6 +368,19 @@ function updateChart(filterGenre = null) {
         .style('display','none')
         .style('pointer-events','none')
         .style('font-size','12px');
+    
+    // click outside of bucket to deselect
+    svg.on('click', function(event) {
+        if (event.target.tagName === 'svg' || event.target.tagName === 'g') {
+            selectedBucket = null;
+            window.dispatchEvent(new CustomEvent('popularityBucketSelected', {
+                detail: { popMin: null, popMax: null }
+            }));
+            d3.selectAll('rect.bar')
+                .attr('stroke', '#333')
+                .attr('stroke-width', 0.2);
+        }
+    });
 }
 
 // init load
@@ -400,6 +457,7 @@ d3.csv("merged_tracks.csv").then(function(rows) {
     window.addEventListener('genreSelected', function(event) {
         const selectedGenre = event.detail.genre;
         currentGenre = selectedGenre;
+        selectedBucket = null; // reset bucket selection when genre changes
         console.log("Perceptive graph received genre:", selectedGenre);
         updateChart(selectedGenre);
     });

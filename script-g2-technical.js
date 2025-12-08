@@ -32,7 +32,6 @@ const genreColors = {
     "alt-rock": "#4361ee"
 };
 
-
 // axes
 const xAxis = svg.append("g")
     .attr("transform", `translate(0, ${height})`);
@@ -81,6 +80,7 @@ yDropdown.selectAll("option")
 // global variables
 let globalSelectedGenre = null;
 let globalTimeRange = [1920, 2020]; // default to all years
+let popularityFilter = null; // track popularity bucket filter
 let allData = []; // store data globally
 
 // time slider
@@ -203,16 +203,39 @@ d3.csv("merged_tracks.csv").then(data => {
             .attr("cy", d => yScale(d[selectedAttr]))
             .merge(circles);
 
+        // apply popularity filter if active
+        merged
+            .attr("opacity", d => {
+                if (!popularityFilter) return 0.6;
+                const inRange = d.popularity >= popularityFilter.popMin && 
+                               d.popularity <= popularityFilter.popMax;
+                return inRange ? 1 : 0.2;
+            })
+            .attr("stroke", d => {
+                if (!popularityFilter) return "#333";
+                const inRange = d.popularity >= popularityFilter.popMin && 
+                               d.popularity <= popularityFilter.popMax;
+                return inRange ? "#000" : "#333";
+            })
+            .attr("stroke-width", d => {
+                if (!popularityFilter) return 0.5;
+                const inRange = d.popularity >= popularityFilter.popMin && 
+                               d.popularity <= popularityFilter.popMax;
+                return inRange ? 2.5 : 0.5;
+            });
+
         // transition attributes
         merged.transition()
             .duration(300)
             .attr("cx", d => xScale(d.popularity))
             .attr("cy", d => yScale(d[selectedAttr]))
-            .attr("r", 3.5)
-            .attr("fill", pointColor)
-            .attr("opacity", 0.6)
-            .attr("stroke", "#333")
-            .attr("stroke-width", 0.5);
+            .attr("r", d => {
+                if (!popularityFilter) return 3.5;
+                const inRange = d.popularity >= popularityFilter.popMin && 
+                               d.popularity <= popularityFilter.popMax;
+                return inRange ? 5 : 3.5;
+            })
+            .attr("fill", pointColor);
 
         // attach tooltip events outside transition
         merged
@@ -250,8 +273,27 @@ d3.csv("merged_tracks.csv").then(data => {
     // listen for genre selection from graph 1
     window.addEventListener('genreSelected', function(e) {
         globalSelectedGenre = e.detail.genre;
+        popularityFilter = null; // reset popularity filter when genre changes
         console.log("Technical graph received genre:", globalSelectedGenre);
         updateChart();
+    });
+
+    // listen for popularity bucket selection from perceptive graph
+    window.addEventListener('popularityBucketSelected', function(e) {
+        const { popMin, popMax, genre } = e.detail;
+        
+        // only apply filter if it matches current genre OR if no genre specified
+        if (popMin !== null && (!genre || genre === globalSelectedGenre)) {
+            popularityFilter = { popMin, popMax };
+            console.log("Technical graph received popularity filter:", popularityFilter);
+        } else {
+            popularityFilter = null;
+            console.log("Technical graph cleared popularity filter");
+        }
+        
+        if (globalSelectedGenre) {
+            updateChart();
+        }
     });
 
 });

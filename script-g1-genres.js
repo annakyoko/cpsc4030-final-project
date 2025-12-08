@@ -6,12 +6,13 @@ d3.csv("merged_tracks.csv").then(data => {
     // Filter out empty genres
     data = data.filter(d => d.track_genre && d.track_genre.trim() !== "");
 
-    // Convert release_year to number
-    data.forEach(d => d.release_year = +d.release_year);
+    // Convert release_year to number and add popularity
+    data.forEach(d => {
+        d.release_year = +d.release_year;
+        d.popularity = +d.popularity_x;
+    });
 
     const svg = d3.select("#genres");
-    // const width = +svg.attr("width") || 900;   // fallback width
-    // const height = +svg.attr("height") || 500; // fallback height
     const svgWidth = svg.node().clientWidth;
     const svgHeight = svg.node().clientHeight;
     
@@ -44,7 +45,6 @@ d3.csv("merged_tracks.csv").then(data => {
     const y = d3.scaleLinear()
         .domain(d3.extent(topData, d => d.release_year))
         .nice()
-        //.range([height - margin.bottom, margin.top]);
         .range([height, 0]);
 
     // cohesive color pallette to go with other graphs
@@ -152,11 +152,6 @@ d3.csv("merged_tracks.csv").then(data => {
         });
 
     // Y-axis (years, no commas)
-    // svg.append("g")
-        // .attr("transform", `translate(${margin.left},0)`)
-        // .call(d3.axisLeft(y).tickFormat(d3.format("d")));
-        // .attr("transform", `translate(${margin.left},0)`)  // only if you need margin shift
-        // .call(d3.axisLeft(y).tickFormat(d3.format("d")));
     g.append("g")
         .call(d3.axisLeft(y).tickFormat(d3.format("d")));
         
@@ -171,6 +166,7 @@ d3.csv("merged_tracks.csv").then(data => {
     let selectedDot = null;
     let selectedGenre = null;
     let tooltipLocked = false;
+    let popularityFilter = null; // track popularity bucket filter
 
     g.append("g")
     .selectAll("circle")
@@ -184,7 +180,7 @@ d3.csv("merged_tracks.csv").then(data => {
     .attr("fill", d => color(d.track_genre))
     .on("mouseover", (event, d) => {
         tooltip.style("opacity", 1)
-                .html(`<strong>Track Name:</strong> "${d.track_name}" <br/><strong>Artist Name:</strong> ${d.artists_x}`)
+                .html(`<strong>Track Name:</strong> "${d.track_name}" <br/><strong>Artist Name:</strong> ${d.artists_x}<br/><strong>Popularity:</strong> ${d.popularity}`)
                 .style("left", (event.pageX + 10) + "px")
                 .style("top", (event.pageY - 20) + "px");
     })
@@ -227,7 +223,7 @@ d3.csv("merged_tracks.csv").then(data => {
             .attr("stroke-width", dot => dot === d ? 2 : 0);
 
           tooltip.style("opacity", 1)
-                 .html(`<strong>Track Name:</strong> "${d.track_name}" <br/><strong>Artist Name:</strong> ${d.artists_x}`)
+                 .html(`<strong>Track Name:</strong> "${d.track_name}" <br/><strong>Artist Name:</strong> ${d.artists_x}<br/><strong>Popularity:</strong> ${d.popularity}`)
                  .style("left", (event.pageX + 10) + "px")
                  .style("top", (event.pageY - 20) + "px");
       }
@@ -313,7 +309,7 @@ d3.csv("merged_tracks.csv").then(data => {
         .attr("fill", "white")
         .attr("stroke", "black")
         .attr("stroke-width", 2)
-        .style("cursor", "pointer")   // show pointer
+        .style("cursor", "pointer") // show pointer
         .on("click", (event, d) => {
             tooltip.style("opacity", 1)
                 .html(`
@@ -346,4 +342,52 @@ d3.csv("merged_tracks.csv").then(data => {
         .attr("font-size", "16px")
         .attr("font-weight", "bold")
         .text("Release Year");
+
+    // listen for popularity bucket selection from perceptive graph
+    window.addEventListener('popularityBucketSelected', function(e) {
+        const { popMin, popMax, genre } = e.detail;
+        popularityFilter = popMin !== null ? { popMin, popMax, genre } : null;
+        
+        console.log("Genres graph received popularity filter:", popularityFilter);
+        
+        if (!popularityFilter) {
+            // clear filter - restore to current selection state
+            if (selectedGenre) {
+                g.selectAll("circle.dot")
+                    .attr("opacity", d => d.track_genre === selectedGenre ? 1 : 0.2)
+                    .attr("stroke", d => d.track_genre === selectedGenre ? "black" : null)
+                    .attr("stroke-width", d => d.track_genre === selectedGenre ? 1.5 : 0);
+            } else {
+                g.selectAll("circle.dot")
+                    .attr("opacity", 1)
+                    .attr("stroke", null)
+                    .attr("stroke-width", 0);
+            }
+        } else {
+            // apply popularity filter
+            g.selectAll("circle.dot")
+                .transition()
+                .duration(300)
+                .attr("r", d => {
+                    const inRange = d.popularity >= popMin && d.popularity <= popMax;
+                    const genreMatch = !selectedGenre || d.track_genre === selectedGenre;
+                    return (inRange && genreMatch) ? 7 : 5;
+                })
+                .attr("opacity", d => {
+                    const inRange = d.popularity >= popMin && d.popularity <= popMax;
+                    const genreMatch = !selectedGenre || d.track_genre === selectedGenre;
+                    return (inRange && genreMatch) ? 1 : 0.2;
+                })
+                .attr("stroke", d => {
+                    const inRange = d.popularity >= popMin && d.popularity <= popMax;
+                    const genreMatch = !selectedGenre || d.track_genre === selectedGenre;
+                    return (inRange && genreMatch) ? "#000" : null;
+                })
+                .attr("stroke-width", d => {
+                    const inRange = d.popularity >= popMin && d.popularity <= popMax;
+                    const genreMatch = !selectedGenre || d.track_genre === selectedGenre;
+                    return (inRange && genreMatch) ? 2.5 : 0;
+                });
+        }
+    });
 });
