@@ -1,7 +1,7 @@
 // this file is for the technical features graph
 
 // margins
-const margin = {top: 50, right: 50, bottom: 70, left: 80};
+const margin = {top: 50, right: 20, bottom: 70, left: 60};
 
 // make svg
 const svgContainer = d3.select("#technical")
@@ -14,7 +14,24 @@ const height = svgContainer.node().clientHeight - margin.top - margin.bottom;
 const svg = svgContainer.append("g")
     .attr("transform", `translate(${margin.left},${margin.top})`);
 
-// scales --> domains set after svg loads
+// create a clip path to keep contours within bounds
+svg.append("defs")
+    .append("clipPath")
+    .attr("id", "chart-clip")
+    .append("rect")
+    .attr("x", 0)
+    .attr("y", 0)
+    .attr("width", width)
+    .attr("height", height);
+
+// create a group for contours (behind points) with clipping
+const contourGroup = svg.append("g")
+    .attr("class", "contour-group")
+    .attr("clip-path", "url(#chart-clip)");
+// create a group for points (in front of contours)
+const pointGroup = svg.append("g").attr("class", "point-group");
+
+// scales --> domains set after data loads
 const xScale = d3.scaleLinear().range([0, width]);
 const yScale = d3.scaleLinear().range([height, 0]);
 
@@ -49,23 +66,12 @@ svg.append("text")
 const yAxisLabel = svg.append("text")
     .attr("transform", "rotate(-90)")
     .attr("x", -height / 2)
-    .attr("y", -60)
+    .attr("y", -margin.left + 15)
     .attr("text-anchor", "middle")
     .attr("font-size", "14px")
-    .attr("font-weight", "bold")
+    .attr("font-weight", '600')
     .attr("id", "y-axis-label")
     .text("Duration");
-
-// add placeholder text to show when no genre filter
-const placeholderText = svg.append("text")
-    .attr("class", "placeholder-text")
-    .attr("x", width / 2)
-    .attr("y", height / 2)
-    .attr("text-anchor", "middle")
-    .attr("font-size", "18px")
-    .attr("fill", "#999")
-    .style("font-style", "italic")
-    .text("← Select a genre from the left graph to explore");
 
 // dropdowns
 const yAttributes = ["duration", "tempo", "time_signature", "explicit", "loudness"];
@@ -79,9 +85,10 @@ yDropdown.selectAll("option")
 
 // global variables
 let globalSelectedGenre = null;
-let globalTimeRange = [1920, 2020]; // default to all years
-let popularityFilter = null; // track popularity bucket filter
-let allData = []; // store data globally
+let globalTimeRange = [1920, 2020];
+let popularityFilter = null;
+let allData = [];
+let contourData = null; // store contour data
 
 // time slider
 const timeSlider = d3.select("#time-slider");
@@ -92,9 +99,7 @@ if (timeSlider.node()) {
         const minYear = +this.value;
         globalTimeRange = [minYear, 2020];
         timeDisplay.text(`${minYear} - 2020`);
-        if (globalSelectedGenre) {
-            updateChart(); // only update if genre selected
-        }
+        updateChart();
     });
 }
 
@@ -103,10 +108,10 @@ d3.csv("merged_tracks.csv").then(data => {
     console.log("First row:", data[0]);
     console.log("Column names:", Object.keys(data[0]));
 
-    // make sure numeric fields are numbers
+    // parse numeric fields
     data.forEach(d => {
         d.year = +d.release_year;
-        d.duration = +d.duration_ms_x;
+        d.duration = +d.duration_ms_x / 60000; // convert ms to min
         d.tempo = +d.tempo_x;
         d.time_signature = +d.time_signature_x;
         d.explicit = d.explicit_x === "true" || d.explicit_x === "True" || d.explicit_x == true ? 1 : 0;
@@ -122,28 +127,109 @@ d3.csv("merged_tracks.csv").then(data => {
     xScale.domain([0, 100]);
     xAxis.call(d3.axisBottom(xScale));
 
-    // function to update chart
-    function updateChart() {
-        const selectedAttr = yDropdown.node().value;
-        const [minYear, maxYear] = globalTimeRange;
+    // function to draw contour plot
+    function drawContours(selectedAttr, timeRange) {
+        const [minYear, maxYear] = timeRange;
+        
+        // filter data by time range only
+        let filteredData = allData.filter(d => 
+            d.year >= minYear && 
+            d.year <= maxYear &&
+            d[selectedAttr] != null &&
+            !isNaN(d[selectedAttr]) &&
+            d.popularity != null &&
+            !isNaN(d.popularity)
+        );
 
-        // if no genre selected, show placeholder
-        if (!globalSelectedGenre) {
-            placeholderText.style("display", "block");
-            svg.selectAll("circle").remove();
+        if (filteredData.length === 0) {
+            contourGroup.selectAll("*").remove();
             return;
         }
 
-        // hide placeholder
-        placeholderText.style("display", "none");
+        // update y-axis domain
+        const yMin = d3.min(filteredData, d => d[selectedAttr]);
+        const yMax = d3.max(filteredData, d => d[selectedAttr]);
+        yScale.domain([yMin, yMax]).nice();
+        yAxis.transition().duration(500).call(d3.axisLeft(yScale));
 
-        console.log(`Updating chart: ${selectedAttr}, years ${minYear}-${maxYear}, genre: ${globalSelectedGenre}`);
+        // prepare data for contours
+        const contourPoints = filteredData.map(d => [
+            xScale(d.popularity),
+            yScale(d[selectedAttr])
+        ]);
 
-        // update y-axis label
-        yAxisLabel.text(selectedAttr.charAt(0).toUpperCase() + selectedAttr.slice(1));
+        // create density data using d3.contourDensity
+        const density = d3.contourDensity()
+            .x(d => d[0])
+            .y(d => d[1])
+            .size([width, height])
+            .bandwidth(20) // adjust for smoothness
+            .thresholds(15) // number of contour levels
+            (contourPoints);
+
+        // color scale for contours
+        const colorScale = d3.scaleSequential(d3.interpolateBlues)
+            .domain([0, d3.max(density, d => d.value)]);
+
+        // draw contours
+        contourGroup.selectAll("path")
+            .data(density)
+            .join("path")
+            .attr("d", d3.geoPath())
+            .attr("fill", d => colorScale(d.value))
+            .attr("stroke", "none")
+            .attr("opacity", globalSelectedGenre ? 0.3 : 0.7)
+            .transition()
+            .duration(300);
+
+        return filteredData;
+    }
+
+    // function to update chart
+    function updateChart() {
+        const selectedAttr = yDropdown.node().value;
+
+        console.log(`Updating chart: ${selectedAttr}, genre: ${globalSelectedGenre}`);
+
+        // update y-axis label with corresponding units to attribute
+        let label = selectedAttr.charAt(0).toUpperCase() + selectedAttr.slice(1).replace('_', ' ');
+        if (selectedAttr === "duration") {
+            label += " (min)";
+        }
+        if (selectedAttr === "tempo") {
+            label += " (BPM)"
+        }
+        if (selectedAttr === "loudness") {
+            label += " (dB)"
+        }
+        if (selectedAttr === "time_signature") {
+            label += " (beats/bar)"
+        }
+        yAxisLabel.text(label);
+
+        // draw contours for all data
+        const allFilteredData = drawContours(selectedAttr, globalTimeRange);
+
+        // if no genre selected, just show contours
+        if (!globalSelectedGenre) {
+            pointGroup.selectAll("circle").remove();
+            // make contours more opaque
+            contourGroup.selectAll("path")
+                .transition()
+                .duration(300)
+                .attr("opacity", 0.7);
+            return;
+        }
+
+        // make contours more transparent when genre is selected
+        contourGroup.selectAll("path")
+            .transition()
+            .duration(300)
+            .attr("opacity", 0.3);
 
         // filter by time range and genre
-        let filteredData = allData.filter(d => 
+        const [minYear, maxYear] = globalTimeRange;
+        let genreData = allData.filter(d => 
             d.year >= minYear && 
             d.year <= maxYear &&
             d.genre === globalSelectedGenre &&
@@ -153,40 +239,18 @@ d3.csv("merged_tracks.csv").then(data => {
             !isNaN(d.popularity)
         );
 
-        console.log(`Filtered data points: ${filteredData.length}`);
+        console.log(`Genre data points: ${genreData.length}`);
 
-        // check for data
-        if (filteredData.length === 0) {
-            console.warn("No data to display after filtering!");
-            svg.selectAll("circle").remove();
-            
-            // show "no data" message
-            svg.selectAll(".no-data-text").remove();
-            svg.append("text")
-                .attr("class", "no-data-text")
-                .attr("x", width / 2)
-                .attr("y", height / 2)
-                .attr("text-anchor", "middle")
-                .attr("font-size", "16px")
-                .attr("fill", "#999")
-                .text(`No ${globalSelectedGenre} tracks found in selected time range`);
+        if (genreData.length === 0) {
+            pointGroup.selectAll("circle").remove();
             return;
         }
-
-        // remove no-data message if it exists
-        svg.selectAll(".no-data-text").remove();
-
-        // update y-axis domain dynamically based on filtered data
-        const yMin = d3.min(filteredData, d => d[selectedAttr]);
-        const yMax = d3.max(filteredData, d => d[selectedAttr]);
-        yScale.domain([yMin, yMax]).nice();
-        yAxis.transition().duration(500).call(d3.axisLeft(yScale));
 
         // use genre color
         const pointColor = genreColors[globalSelectedGenre] || "#3182bd";
 
         // bind data to circles
-        const circles = svg.selectAll("circle").data(filteredData, d => d.track_name + d.year);
+        const circles = pointGroup.selectAll("circle").data(genreData, d => d.track_name + d.year);
 
         // exit - remove old circles
         circles.exit()
@@ -237,16 +301,39 @@ d3.csv("merged_tracks.csv").then(data => {
             })
             .attr("fill", pointColor);
 
-        // attach tooltip events outside transition
+        // attach tooltip events
         merged
             .on("mouseover", (event, d) => {
+                // format attribute name with proper capitalization and units
+                let attrDisplay = selectedAttr.charAt(0).toUpperCase() + selectedAttr.slice(1).replace('_', ' ');
+                let attrValue;
+                let attrUnit = '';
+                
+                if (selectedAttr === 'duration') {
+                    // convert decimal minutes to M:SS format
+                    const totalSeconds = Math.round(d[selectedAttr] * 60);
+                    const mins = Math.floor(totalSeconds / 60);
+                    const secs = totalSeconds % 60;
+                    attrValue = `${mins}:${secs.toString().padStart(2, '0')}`;
+                    attrUnit = '';
+                } else {
+                    attrValue = d[selectedAttr].toFixed(2);
+                    if (selectedAttr === 'tempo') {
+                        attrUnit = ' BPM';
+                    } else if (selectedAttr === 'loudness') {
+                        attrUnit = ' dB';
+                    } else if (selectedAttr === 'time_signature') {
+                        attrUnit = ' beats/bar'
+                    }
+                }
+                
                 d3.select("#tooltip")
                     .style("opacity", 1)
                     .html(`
                         <strong>Track:</strong> ${d.track_name || 'N/A'}<br/>
                         <strong>Artist:</strong> ${d.artists_x || 'N/A'}<br/>
                         <strong>Year:</strong> ${d.year}<br/>
-                        <strong>${selectedAttr}:</strong> ${d[selectedAttr].toFixed(2)}<br/>
+                        <strong>${attrDisplay}:</strong> ${attrValue}${attrUnit}<br/>
                         <strong>Popularity:</strong> ${d.popularity}
                     `);
             })
@@ -263,7 +350,7 @@ d3.csv("merged_tracks.csv").then(data => {
     // make updateChart global
     window.updateTechnicalChart = updateChart;
 
-    // initial render (will show placeholder since no genre selected)
+    // initial render - show contours for all data
     yDropdown.property("value", "duration");
     updateChart();
 
@@ -282,7 +369,6 @@ d3.csv("merged_tracks.csv").then(data => {
     window.addEventListener('popularityBucketSelected', function(e) {
         const { popMin, popMax, genre } = e.detail;
         
-        // only apply filter if it matches current genre OR if no genre specified
         if (popMin !== null && (!genre || genre === globalSelectedGenre)) {
             popularityFilter = { popMin, popMax };
             console.log("Technical graph received popularity filter:", popularityFilter);
@@ -291,9 +377,7 @@ d3.csv("merged_tracks.csv").then(data => {
             console.log("Technical graph cleared popularity filter");
         }
         
-        if (globalSelectedGenre) {
-            updateChart();
-        }
+        updateChart();
     });
 
 });
