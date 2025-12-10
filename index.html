@@ -27,6 +27,7 @@
       }
 
       #controls {
+        position: relative;
         padding: 10px 20px;
         background-color: #fafafa;
         border-bottom: 1px solid #ddd;
@@ -95,6 +96,7 @@
         pointer-events: none;
         opacity: 0;
         z-index: 1000;
+        font-size: 12px;
       }
     </style>
   </head>
@@ -107,7 +109,7 @@
       <div style="margin-bottom: 15px;">
         <label for="time-slider" style="display: block; margin-bottom: 5px;">Time Range:</label>
         <input type="range" id="time-slider" min="1920" max="2020" value="1920" step="5" 
-              style="width: 300px; vertical-align: middle;">
+              style="width: 100%; vertical-align: middle;">
         <span id="time-display" style="margin-left: 10px; font-weight: bold;">1920 - 2020</span>
       </div>
     </div>
