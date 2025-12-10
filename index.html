@@ -38,7 +38,6 @@
       }
 
       /* dropdown menu for techinical features graph */
-      /* WILL BE REMOVED when dropdown issue is solved */
       #y-dropdown {
         padding: 4px 8px;
         border-radius: 4px;
@@ -113,11 +112,6 @@
       </div>
     </div>
 
-    <div id="controls">
-      <label for="y-dropdown">Select Y-axis attribute:</label>
-      <select id="y-dropdown"></select>
-    </div>
-
     <div id="dashboard">
       <div id="left">
         <div class="chart-container">
@@ -127,6 +121,10 @@
 
       <div id="right">
         <div class="chart-container">
+          <div style="padding: 5px 0 5px 0; display: flex; align-items: center; gap: 10px;">
+            <label for="y-dropdown" style="font-size: 14px;">Y-axis attribute:</label>
+            <select id="y-dropdown"></select>
+          </div>
           <svg id="technical"></svg>
         </div>
         <div class="chart-container">
