@@ -200,6 +200,11 @@ d3.csv("merged_tracks.csv").then(data => {
           tooltipLocked = false;
           tooltip.style("opacity", 0);
 
+          // dispatch event to deselect track
+          window.dispatchEvent(new CustomEvent('trackSelected', {
+              detail: { track: null, source: 'genre' }
+          }));
+
           // if genre is selected, restore genre selection state
             if (selectedGenre) {
                 g.selectAll("circle.dot")
@@ -216,6 +221,11 @@ d3.csv("merged_tracks.csv").then(data => {
           // select clicked dot
           selectedDot = d;
           tooltipLocked = true;
+
+          // dispatch event to highlight in technical graph
+          window.dispatchEvent(new CustomEvent('trackSelected', {
+              detail: { track: d, source: 'genre' }
+          }));
 
           g.selectAll("circle.dot")
             .attr("opacity", dot => dot === d ? 1 : 0.3)
@@ -238,6 +248,11 @@ d3.csv("merged_tracks.csv").then(data => {
             tooltipLocked = false;
             tooltip.style("opacity", 0);
             
+            // dispatch event to deselect track
+            window.dispatchEvent(new CustomEvent('trackSelected', {
+                detail: { track: null, source: 'genre' }
+            }));
+            
             g.selectAll("circle.dot")
                 .attr("opacity", 1)
                 .attr("stroke", null)
@@ -252,6 +267,56 @@ d3.csv("merged_tracks.csv").then(data => {
             detail: { genre: null } 
             }));
             console.log("Dispatched event: genre deselected (whitespace click)");
+        }
+    });
+
+    // listen for track selection from technical graph
+    window.addEventListener('trackSelected', function(e) {
+        const track = e.detail.track;
+        
+        // ignore events that originated from this graph
+        if (e.detail.source === 'genre') {
+            return;
+        }
+        
+        if (!track) {
+            // deselection from technical graph
+            selectedDot = null;
+            tooltipLocked = false;
+            tooltip.style("opacity", 0);
+            
+            if (selectedGenre) {
+                g.selectAll("circle.dot")
+                    .attr("opacity", d => d.track_genre === selectedGenre ? 1 : 0.2)
+                    .attr("stroke", d => d.track_genre === selectedGenre ? "black" : null)
+                    .attr("stroke-width", d => d.track_genre === selectedGenre ? 1.5 : 0);
+            } else {
+                g.selectAll("circle.dot")
+                    .attr("opacity", 1)
+                    .attr("stroke", null)
+                    .attr("stroke-width", 0);
+            }
+        } else {
+            // find matching track in genre graph
+            const matchingDot = topData.find(d => 
+                d.track_name === track.track_name && 
+                d.artists_x === track.artists_x &&
+                d.release_year === track.year
+            );
+            
+            if (matchingDot) {
+                selectedDot = matchingDot;
+                tooltipLocked = false; // don't lock tooltip in genre graph
+                
+                // highlight the matching dot
+                g.selectAll("circle.dot")
+                    .attr("opacity", d => d === matchingDot ? 1 : 0.3)
+                    .attr("stroke", d => d === matchingDot ? "black" : null)
+                    .attr("stroke-width", d => d === matchingDot ? 2 : 0);
+                
+                // don't show tooltip in genre graph when selected
+                tooltip.style("opacity", 0);
+            }
         }
     });
 

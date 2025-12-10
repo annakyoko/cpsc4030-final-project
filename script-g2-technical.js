@@ -89,6 +89,7 @@ let globalTimeRange = [1920, 2020];
 let popularityFilter = null;
 let allData = [];
 let contourData = null; // store contour data
+let selectedTrack = null; // track selected point
 
 // time slider
 const timeSlider = d3.select("#time-slider");
@@ -107,6 +108,18 @@ if (timeSlider.node()) {
 d3.csv("merged_tracks.csv").then(data => {
     console.log("First row:", data[0]);
     console.log("Column names:", Object.keys(data[0]));
+
+    // create a separate tooltip for tech graph (so it persists when mouse moves on genre graph)
+    const technicalTooltip = d3.select("body").append("div")
+        .attr("id", "technical-tooltip")
+        .style("position", "absolute")
+        .style("background-color", "white")
+        .style("border", "1px solid black")
+        .style("padding", "5px 8px")
+        .style("border-radius", "4px")
+        .style("pointer-events", "none")
+        .style("opacity", 0)
+        .style("z-index", 1000);
 
     // parse numeric fields
     data.forEach(d => {
@@ -163,8 +176,8 @@ d3.csv("merged_tracks.csv").then(data => {
             .x(d => d[0])
             .y(d => d[1])
             .size([width, height])
-            .bandwidth(20) // adjust for smoothness
-            .thresholds(15) // number of contour levels
+            .bandwidth(20) // smoothness
+            .thresholds(15) // number contour levels
             (contourPoints);
 
         // color scale for contours
@@ -207,7 +220,7 @@ d3.csv("merged_tracks.csv").then(data => {
         }
         yAxisLabel.text(label);
 
-        // draw contours for all data
+        // draw contours
         const allFilteredData = drawContours(selectedAttr, globalTimeRange);
 
         // if no genre selected, just show contours
@@ -270,18 +283,33 @@ d3.csv("merged_tracks.csv").then(data => {
         // apply popularity filter if active
         merged
             .attr("opacity", d => {
+                // check if track is selected
+                if (selectedTrack && d.track_name === selectedTrack.track_name && 
+                    d.artists_x === selectedTrack.artists_x && d.year === selectedTrack.year) {
+                    return 1;
+                }
                 if (!popularityFilter) return 0.6;
                 const inRange = d.popularity >= popularityFilter.popMin && 
                                d.popularity <= popularityFilter.popMax;
                 return inRange ? 1 : 0.2;
             })
             .attr("stroke", d => {
+                // check if track is selected
+                if (selectedTrack && d.track_name === selectedTrack.track_name && 
+                    d.artists_x === selectedTrack.artists_x && d.year === selectedTrack.year) {
+                    return "#000";
+                }
                 if (!popularityFilter) return "#333";
                 const inRange = d.popularity >= popularityFilter.popMin && 
                                d.popularity <= popularityFilter.popMax;
                 return inRange ? "#000" : "#333";
             })
             .attr("stroke-width", d => {
+                // check if track is selected
+                if (selectedTrack && d.track_name === selectedTrack.track_name && 
+                    d.artists_x === selectedTrack.artists_x && d.year === selectedTrack.year) {
+                    return 3;
+                }
                 if (!popularityFilter) return 0.5;
                 const inRange = d.popularity >= popularityFilter.popMin && 
                                d.popularity <= popularityFilter.popMax;
@@ -294,6 +322,11 @@ d3.csv("merged_tracks.csv").then(data => {
             .attr("cx", d => xScale(d.popularity))
             .attr("cy", d => yScale(d[selectedAttr]))
             .attr("r", d => {
+                // check if track selected
+                if (selectedTrack && d.track_name === selectedTrack.track_name && 
+                    d.artists_x === selectedTrack.artists_x && d.year === selectedTrack.year) {
+                    return 6;
+                }
                 if (!popularityFilter) return 3.5;
                 const inRange = d.popularity >= popularityFilter.popMin && 
                                d.popularity <= popularityFilter.popMax;
@@ -301,51 +334,142 @@ d3.csv("merged_tracks.csv").then(data => {
             })
             .attr("fill", pointColor);
 
-        // attach tooltip events
+        // attach tooltip and click events
         merged
-            .on("mouseover", (event, d) => {
-                // format attribute name with proper capitalization and units
-                let attrDisplay = selectedAttr.charAt(0).toUpperCase() + selectedAttr.slice(1).replace('_', ' ');
-                let attrValue;
-                let attrUnit = '';
+            .style("cursor", "pointer")
+            .on("click", function(event, d) {
+                event.stopPropagation();
                 
-                if (selectedAttr === 'duration') {
-                    // convert decimal minutes to M:SS format
-                    const totalSeconds = Math.round(d[selectedAttr] * 60);
-                    const mins = Math.floor(totalSeconds / 60);
-                    const secs = totalSeconds % 60;
-                    attrValue = `${mins}:${secs.toString().padStart(2, '0')}`;
-                    attrUnit = '';
+                // toggle selection
+                if (selectedTrack && d.track_name === selectedTrack.track_name && 
+                    d.artists_x === selectedTrack.artists_x && d.year === selectedTrack.year) {
+                    selectedTrack = null;
+                    technicalTooltip.style("opacity", 0);
+                    
+                    // dispatch event to deselect in genre graph
+                    window.dispatchEvent(new CustomEvent('trackSelected', {
+                        detail: { track: null, source: 'technical' }
+                    }));
                 } else {
-                    attrValue = d[selectedAttr].toFixed(2);
-                    if (selectedAttr === 'tempo') {
-                        attrUnit = ' BPM';
-                    } else if (selectedAttr === 'loudness') {
-                        attrUnit = ' dB';
-                    } else if (selectedAttr === 'time_signature') {
-                        attrUnit = ' beats/bar'
+                    selectedTrack = {
+                        track_name: d.track_name,
+                        artists_x: d.artists_x,
+                        year: d.year
+                    };
+                    
+                    // show tooltip at fixed position
+                    let attrDisplay = selectedAttr.charAt(0).toUpperCase() + selectedAttr.slice(1).replace('_', ' ');
+                    let attrValue;
+                    let attrUnit = '';
+                    
+                    if (selectedAttr === 'duration') {
+                        const totalSeconds = Math.round(d[selectedAttr] * 60);
+                        const mins = Math.floor(totalSeconds / 60);
+                        const secs = totalSeconds % 60;
+                        attrValue = `${mins}:${secs.toString().padStart(2, '0')}`;
+                        attrUnit = '';
+                    } else {
+                        attrValue = d[selectedAttr].toFixed(2);
+                        if (selectedAttr === 'tempo') {
+                            attrUnit = ' BPM';
+                        } else if (selectedAttr === 'loudness') {
+                            attrUnit = ' dB';
+                        } else if (selectedAttr === 'time_signature') {
+                            attrUnit = ' beats/bar'
+                        }
                     }
+                    
+                    const bbox = svgContainer.node().getBoundingClientRect();
+                    console.log("Showing tooltip, bbox:", bbox);
+                    technicalTooltip
+                        .style("opacity", 1)
+                        .html(`
+                            <strong>Track:</strong> ${d.track_name || 'N/A'}<br/>
+                            <strong>Artist:</strong> ${d.artists_x || 'N/A'}<br/>
+                            <strong>Year:</strong> ${d.year}<br/>
+                            <strong>${attrDisplay}:</strong> ${attrValue}${attrUnit}<br/>
+                            <strong>Popularity:</strong> ${d.popularity}
+                        `)
+                        .style("left", (bbox.right - 220) + "px")
+                        .style("top", (bbox.top + 10) + "px");
+                    
+                    // dispatch event to highlight in genre graph
+                    window.dispatchEvent(new CustomEvent('trackSelected', {
+                        detail: { track: d, source: 'technical' }
+                    }));
                 }
                 
-                d3.select("#tooltip")
-                    .style("opacity", 1)
-                    .html(`
-                        <strong>Track:</strong> ${d.track_name || 'N/A'}<br/>
-                        <strong>Artist:</strong> ${d.artists_x || 'N/A'}<br/>
-                        <strong>Year:</strong> ${d.year}<br/>
-                        <strong>${attrDisplay}:</strong> ${attrValue}${attrUnit}<br/>
-                        <strong>Popularity:</strong> ${d.popularity}
-                    `);
+                updateChart();
             })
-            .on("mousemove", (event) => {
-                d3.select("#tooltip")
-                    .style("left", (event.pageX + 10) + "px")
-                    .style("top", (event.pageY - 25) + "px");
+            .on("mouseover", (event, d) => {
+                // only show hover tooltip if no track is selected
+                if (!selectedTrack) {
+                    // format attribute name with proper capitalization and units
+                    let attrDisplay = selectedAttr.charAt(0).toUpperCase() + selectedAttr.slice(1).replace('_', ' ');
+                    let attrValue;
+                    let attrUnit = '';
+                    
+                    if (selectedAttr === 'duration') {
+                        // convert decimal minutes to M:SS format
+                        const totalSeconds = Math.round(d[selectedAttr] * 60);
+                        const mins = Math.floor(totalSeconds / 60);
+                        const secs = totalSeconds % 60;
+                        attrValue = `${mins}:${secs.toString().padStart(2, '0')}`;
+                        attrUnit = '';
+                    } else {
+                        attrValue = d[selectedAttr].toFixed(2);
+                        if (selectedAttr === 'tempo') {
+                            attrUnit = ' BPM';
+                        } else if (selectedAttr === 'loudness') {
+                            attrUnit = ' dB';
+                        } else if (selectedAttr === 'time_signature') {
+                            attrUnit = ' beats/bar'
+                        }
+                    }
+                    
+                    d3.select("#tooltip")
+                        .style("opacity", 1)
+                        .html(`
+                            <strong>Track:</strong> ${d.track_name || 'N/A'}<br/>
+                            <strong>Artist:</strong> ${d.artists_x || 'N/A'}<br/>
+                            <strong>Year:</strong> ${d.year}<br/>
+                            <strong>${attrDisplay}:</strong> ${attrValue}${attrUnit}<br/>
+                            <strong>Popularity:</strong> ${d.popularity}<br/>
+                            <em>Click to highlight in genre graph</em>
+                        `)
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 25) + "px")
+                        .style("pointer-events", "none");
+                }
             })
-            .on("mouseout", () => {
-                d3.select("#tooltip").style("opacity", 0);
+            .on("mousemove", (event, d) => {
+                // only update position if no track is selected (hover mode)
+                if (!selectedTrack) {
+                    d3.select("#tooltip")
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 25) + "px");
+                }
+            })
+            .on("mouseout", (event, d) => {
+                // don't hide tooltip if track is selected
+                if (!selectedTrack) {
+                    d3.select("#tooltip").style("opacity", 0);
+                }
+                // if selectedTrack exists, do nothing (tooltpi stays visible)
             });
     }
+
+    // click empty space to deselect
+    svg.on("click", function(event) {
+        if (event.target === this || event.target.tagName === 'g' || event.target.tagName === 'path') {
+            selectedTrack = null;
+            technicalTooltip.style("opacity", 0);
+            window.dispatchEvent(new CustomEvent('trackSelected', {
+                detail: { track: null, source: 'technical' }
+            }));
+            updateChart();
+        }
+    });
 
     // make updateChart global
     window.updateTechnicalChart = updateChart;
@@ -361,8 +485,100 @@ d3.csv("merged_tracks.csv").then(data => {
     window.addEventListener('genreSelected', function(e) {
         globalSelectedGenre = e.detail.genre;
         popularityFilter = null; // reset popularity filter when genre changes
+        selectedTrack = null; // reset track selection
         console.log("Technical graph received genre:", globalSelectedGenre);
         updateChart();
+    });
+
+    // listen for track selection from genre graph
+    window.addEventListener('trackSelected', function(e) {
+        const track = e.detail.track;
+        
+        // ignore events that from this graph
+        if (e.detail.source === 'technical') {
+            return;
+        }
+        
+        if (!track) {
+            selectedTrack = null;
+            technicalTooltip.style("opacity", 0);
+        } else {
+            // set selected track - matching by track name, artist, and year
+            selectedTrack = {
+                track_name: track.track_name,
+                artists_x: track.artists_x,
+                year: track.release_year
+            };
+        }
+        
+        // update chart
+        updateChart();
+        // then show tooltip
+        if (track) {
+            setTimeout(() => {
+                const selectedAttr = yDropdown.node().value;
+                
+                // find the data point to get attribute values
+                const dataPoint = allData.find(d => 
+                    d.track_name === track.track_name && 
+                    d.artists_x === track.artists_x &&
+                    d.year === track.release_year
+                );
+                
+                if (dataPoint && dataPoint[selectedAttr] != null) {
+                    let attrDisplay = selectedAttr.charAt(0).toUpperCase() + selectedAttr.slice(1).replace('_', ' ');
+                    let attrValue;
+                    let attrUnit = '';
+                    
+                    if (selectedAttr === 'duration') {
+                        const totalSeconds = Math.round(dataPoint[selectedAttr] * 60);
+                        const mins = Math.floor(totalSeconds / 60);
+                        const secs = totalSeconds % 60;
+                        attrValue = `${mins}:${secs.toString().padStart(2, '0')}`;
+                        attrUnit = '';
+                    } else {
+                        attrValue = dataPoint[selectedAttr].toFixed(2);
+                        if (selectedAttr === 'tempo') {
+                            attrUnit = ' BPM';
+                        } else if (selectedAttr === 'loudness') {
+                            attrUnit = ' dB';
+                        } else if (selectedAttr === 'time_signature') {
+                            attrUnit = ' beats/bar'
+                        }
+                    }
+                    
+                    const bbox = svgContainer.node().getBoundingClientRect();
+                    console.log("Showing tooltip from genre selection, bbox:", bbox);
+                    console.log("Track info:", dataPoint);
+                    technicalTooltip
+                        .style("opacity", 1)
+                        .html(`
+                            <strong>Track:</strong> ${dataPoint.track_name || 'N/A'}<br/>
+                            <strong>Artist:</strong> ${dataPoint.artists_x || 'N/A'}<br/>
+                            <strong>Year:</strong> ${dataPoint.year}<br/>
+                            <strong>${attrDisplay}:</strong> ${attrValue}${attrUnit}<br/>
+                            <strong>Popularity:</strong> ${dataPoint.popularity}
+                        `)
+                        .style("left", (bbox.right - 220) + "px")
+                        .style("top", (bbox.top + 10) + "px");
+                } else {
+                    // if we can't find datapoint attribute, still show basic info
+                    const bbox = svgContainer.node().getBoundingClientRect();
+                    console.log("Showing fallback tooltip, bbox:", bbox);
+                    console.log("Track info (fallback):", track);
+                    technicalTooltip
+                        .style("opacity", 1)
+                        .html(`
+                            <strong>Track:</strong> ${track.track_name || 'N/A'}<br/>
+                            <strong>Artist:</strong> ${track.artists_x || 'N/A'}<br/>
+                            <strong>Year:</strong> ${track.release_year}<br/>
+                            <strong>Popularity:</strong> ${track.popularity}
+                        `)
+                        .style("left", (bbox.right - 220) + "px")
+                        .style("top", (bbox.top + 10) + "px");
+                }
+            });
+        }
     });
 
     // listen for popularity bucket selection from perceptive graph
