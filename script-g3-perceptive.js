@@ -8,16 +8,24 @@ function toNumber(x) {
 }
 
 // Store the full dataset globally so we can filter it
-let fullData = [];
-let currentGenre = null;
-let globalYScale = null; // Store the y-scale globally to keep it consistent
-let selectedBucket = null; // track selected bucket
+let perceptiveFullData = [];
+let perceptiveCurrentGenre = null;
+let perceptiveGlobalYScale = null; // Store the y-scale globally to keep it consistent
+let perceptiveSelectedBucket = null; // track selected bucket
+let perceptiveTimeRange = [1920, 2020]; // time range
 
 function updateChart(filterGenre = null) {
-    // Filter data by genre if one is selected
-    const filteredData = filterGenre 
-        ? fullData.filter(d => d.genre === filterGenre)
-        : fullData;
+    const [minYear, maxYear] = perceptiveTimeRange;
+    
+    // Filter data by genre and time range
+    let filteredData = perceptiveFullData.filter(d => 
+        d.release_year >= minYear && 
+        d.release_year <= maxYear
+    );
+    
+    if (filterGenre) {
+        filteredData = filteredData.filter(d => d.genre === filterGenre);
+    }
 
     if (!filteredData.length) {
         d3.select('#perceptive').selectAll('*').remove();
@@ -25,7 +33,7 @@ function updateChart(filterGenre = null) {
             .attr('x', 300)
             .attr('y', 200)
             .attr('text-anchor', 'middle')
-            .text(`No data found for genre: ${filterGenre}`);
+            .text(`No data found for selected filters`);
         return;
     }
 
@@ -96,16 +104,25 @@ function updateChart(filterGenre = null) {
         .append('g')
         .attr('transform', `translate(${margin.left},${margin.top})`);
 
-    // Add title showing current filter
-    if (filterGenre) {
+    // Add title showing current filters
+    let titleText = '';
+    if (filterGenre && minYear > 1920) {
+        titleText = `Filtered by Genre: ${filterGenre} | Years: ${minYear}–2020`;
+    } else if (filterGenre) {
+        titleText = `Filtered by Genre: ${filterGenre}`;
+    } else if (minYear > 1920) {
+        titleText = `Filtered by Years: ${minYear}–2020`;
+    }
+    
+    if (titleText) {
         svg.append('text')
             .attr('x', width / 2)
-            .attr('y', -35)
+            .attr('y', -25)
             .attr('text-anchor', 'middle')
             .attr('fill', '#333')
-            .style('font-size', '16px')
+            .style('font-size', '13px')
             .style('font-weight', '600')
-            .text(`Filtered by Genre: ${filterGenre}`);
+            .text(titleText);
     }
 
     const groups = bucketData.map(d => d.label);
@@ -122,7 +139,7 @@ function updateChart(filterGenre = null) {
         .padding(0.05);
 
     // Use global y-scale if it exists, otherwise create it from full dataset
-    const y = globalYScale || d3.scaleLinear()
+    const y = perceptiveGlobalYScale || d3.scaleLinear()
         .domain([0, d3.max(bucketData, d => Math.max(d.valence, d.energy, d.danceability)) || 1])
         .nice()
         .range([height, 0]);
@@ -189,15 +206,15 @@ function updateChart(filterGenre = null) {
         .attr('width', x1.bandwidth())
         .attr('height', d => height - y(d.value))
         .attr('fill', d => color(d.key))
-        .attr('stroke', d => selectedBucket === d.bucketIndex ? '#000' : '#333')
-        .attr('stroke-width', d => selectedBucket === d.bucketIndex ? 2.5 : 0.2)
+        .attr('stroke', d => perceptiveSelectedBucket === d.bucketIndex ? '#000' : '#333')
+        .attr('stroke-width', d => perceptiveSelectedBucket === d.bucketIndex ? 2.5 : 0.2)
         .style('cursor', 'pointer')
         .on('click', function(event, d) {
             event.stopPropagation();
             
             // Toggle selection
-            if (selectedBucket === d.bucketIndex) {
-                selectedBucket = null;
+            if (perceptiveSelectedBucket === d.bucketIndex) {
+                perceptiveSelectedBucket = null;
                 // Dispatch event to clear highlights
                 window.dispatchEvent(new CustomEvent('popularityBucketSelected', {
                     detail: { popMin: null, popMax: null }
@@ -208,13 +225,13 @@ function updateChart(filterGenre = null) {
                     .attr('stroke', '#333')
                     .attr('stroke-width', 0.2);
             } else {
-                selectedBucket = d.bucketIndex;
+                perceptiveSelectedBucket = d.bucketIndex;
                 // Dispatch event with popularity range
                 window.dispatchEvent(new CustomEvent('popularityBucketSelected', {
                     detail: { 
                         popMin: d.popMin, 
                         popMax: d.popMax,
-                        genre: currentGenre 
+                        genre: perceptiveCurrentGenre 
                     }
                 }));
                 
@@ -296,7 +313,7 @@ function updateChart(filterGenre = null) {
 
     // Legend
     const legend = svg.append('g')
-        .attr('transform', `translate(${width - 300}, -30)`);
+        .attr('transform', `translate(${width - 300}, -18)`);
 
     keys.forEach((k, i) => {
         const g = legend.append('g').attr('transform', `translate(${i*120}, 0)`);
@@ -372,7 +389,7 @@ function updateChart(filterGenre = null) {
     // click outside of bucket to deselect
     svg.on('click', function(event) {
         if (event.target.tagName === 'svg' || event.target.tagName === 'g') {
-            selectedBucket = null;
+            perceptiveSelectedBucket = null;
             window.dispatchEvent(new CustomEvent('popularityBucketSelected', {
                 detail: { popMin: null, popMax: null }
             }));
@@ -386,67 +403,29 @@ function updateChart(filterGenre = null) {
 // init load
 d3.csv("merged_tracks.csv").then(function(rows) {
     // parse numeric fields and store globally
-    fullData = rows.map(d => ({
+    perceptiveFullData = rows.map(d => ({
         popularity: +d.popularity_x,
         valence: +d.valence_x,
         energy: +d.energy_x,
         danceability: +d.danceability_x,
-        genre: d.track_genre
-    })).filter(d => d.popularity !== null);
+        genre: d.track_genre,
+        release_year: +d.release_year
+    })).filter(d => d.popularity !== null && d.release_year !== null);
 
-    if (!fullData.length) {
+    if (!perceptiveFullData.length) {
         d3.select('#perceptive').append('text').text('No numeric data found. Check CSV column names.');
         console.error('No numeric rows after parsing.');
         return;
     }
 
     // calc global y-scale from all data (before filtering)
-    const pops = fullData.map(d => d.popularity);
-    const popMin = d3.min(pops);
-    const popMax = d3.max(pops);
-    const range = popMax - popMin || 1;
-
-    // prep buckets from full dataset
-    const buckets = Array.from({length:10}, (_,i) => ({
-        i,
-        count: 0,
-        sumValence: 0,
-        sumEnergy: 0,
-        sumDance: 0
-    }));
-
-    fullData.forEach(d => {
-        let idx = Math.floor((d.popularity - popMin) / range * 10);
-        if (idx < 0) idx = 0;
-        if (idx > 9) idx = 9;
-        const b = buckets[idx];
-        b.count += 1;
-        if (d.valence != null) b.sumValence += d.valence;
-        if (d.energy != null) b.sumEnergy += d.energy;
-        if (d.danceability != null) b.sumDance += d.danceability;
-    });
-
-    const bucketData = buckets.map((b, i) => {
-        const bucketLow = popMin + (i * range / 10);
-        const bucketHigh = popMin + ((i+1) * range / 10);
-        return {
-            bucket: i,
-            label: `${Math.round(bucketLow)}–${Math.round(bucketHigh)}`,
-            count: b.count,
-            valence: b.count ? (b.sumValence / b.count) : 0,
-            energy: b.count ? (b.sumEnergy / b.count) : 0,
-            danceability: b.count ? (b.sumDance / b.count) : 0
-        };
-    });
-
-    // set global y-scale based on full dataset
     const margin = {top: 35, right: 20, bottom: 80, left: 60};
     const svgContainer = d3.select("#perceptive");
     const width = svgContainer.node().clientWidth - margin.left - margin.right;
     const height = svgContainer.node().clientHeight - margin.top - margin.bottom;
 
     // force y-scale to always be 0-1 since these are normalized features
-    globalYScale = d3.scaleLinear()
+    perceptiveGlobalYScale = d3.scaleLinear()
         .domain([0, 1])
         .range([height, 0]);
 
@@ -456,10 +435,17 @@ d3.csv("merged_tracks.csv").then(function(rows) {
     // listen for genre filter from genres graph
     window.addEventListener('genreSelected', function(event) {
         const selectedGenre = event.detail.genre;
-        currentGenre = selectedGenre;
-        selectedBucket = null; // reset bucket selection when genre changes
+        perceptiveCurrentGenre = selectedGenre;
+        perceptiveSelectedBucket = null; // reset bucket selection when genre changes
         console.log("Perceptive graph received genre:", selectedGenre);
         updateChart(selectedGenre);
+    });
+
+    // listen for time range changes
+    window.addEventListener('timeRangeChanged', function(event) {
+        perceptiveTimeRange = event.detail.timeRange;
+        console.log("Perceptive graph received time range:", perceptiveTimeRange);
+        updateChart(perceptiveCurrentGenre);
     });
 
 }).catch(err => {

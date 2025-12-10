@@ -84,12 +84,12 @@ yDropdown.selectAll("option")
     .attr("value", d => d);
 
 // global variables
-let globalSelectedGenre = null;
-let globalTimeRange = [1920, 2020];
-let popularityFilter = null;
-let allData = [];
-let contourData = null; // store contour data
-let selectedTrack = null; // track selected point
+let technicalSelectedGenre = null;
+let technicalTimeRange = [1920, 2020];
+let technicalPopularityFilter = null;
+let technicalAllData = [];
+let technicalContourData = null; // store contour data
+let technicalSelectedTrack = null; // track selected point
 
 // time slider
 const timeSlider = d3.select("#time-slider");
@@ -98,8 +98,14 @@ const timeDisplay = d3.select("#time-display");
 if (timeSlider.node()) {
     timeSlider.on("input", function() {
         const minYear = +this.value;
-        globalTimeRange = [minYear, 2020];
+        technicalTimeRange = [minYear, 2020];
         timeDisplay.text(`${minYear} - 2020`);
+        
+        // dispatch event for all graphs
+        window.dispatchEvent(new CustomEvent('timeRangeChanged', {
+            detail: { timeRange: technicalTimeRange }
+        }));
+        
         updateChart();
     });
 }
@@ -133,8 +139,8 @@ d3.csv("merged_tracks.csv").then(data => {
         d.genre = d.track_genre;
     });
 
-    allData = data;
-    console.log("Loaded data, total tracks:", allData.length);
+    technicalAllData = data;
+    console.log("Loaded data, total tracks:", technicalAllData.length);
 
     // set x-axis domain (popularity 0-100)
     xScale.domain([0, 100]);
@@ -145,7 +151,7 @@ d3.csv("merged_tracks.csv").then(data => {
         const [minYear, maxYear] = timeRange;
         
         // filter data by time range only
-        let filteredData = allData.filter(d => 
+        let filteredData = technicalAllData.filter(d => 
             d.year >= minYear && 
             d.year <= maxYear &&
             d[selectedAttr] != null &&
@@ -191,7 +197,7 @@ d3.csv("merged_tracks.csv").then(data => {
             .attr("d", d3.geoPath())
             .attr("fill", d => colorScale(d.value))
             .attr("stroke", "none")
-            .attr("opacity", globalSelectedGenre ? 0.3 : 0.7)
+            .attr("opacity", technicalSelectedGenre ? 0.3 : 0.7)
             .transition()
             .duration(300);
 
@@ -202,7 +208,7 @@ d3.csv("merged_tracks.csv").then(data => {
     function updateChart() {
         const selectedAttr = yDropdown.node().value;
 
-        console.log(`Updating chart: ${selectedAttr}, genre: ${globalSelectedGenre}`);
+        console.log(`Updating chart: ${selectedAttr}, genre: ${technicalSelectedGenre}`);
 
         // update y-axis label with corresponding units to attribute
         let label = selectedAttr.charAt(0).toUpperCase() + selectedAttr.slice(1).replace('_', ' ');
@@ -221,10 +227,10 @@ d3.csv("merged_tracks.csv").then(data => {
         yAxisLabel.text(label);
 
         // draw contours
-        const allFilteredData = drawContours(selectedAttr, globalTimeRange);
+        const allFilteredData = drawContours(selectedAttr, technicalTimeRange);
 
         // if no genre selected, just show contours
-        if (!globalSelectedGenre) {
+        if (!technicalSelectedGenre) {
             pointGroup.selectAll("circle").remove();
             // make contours more opaque
             contourGroup.selectAll("path")
@@ -241,11 +247,11 @@ d3.csv("merged_tracks.csv").then(data => {
             .attr("opacity", 0.3);
 
         // filter by time range and genre
-        const [minYear, maxYear] = globalTimeRange;
-        let genreData = allData.filter(d => 
+        const [minYear, maxYear] = technicalTimeRange;
+        let genreData = technicalAllData.filter(d => 
             d.year >= minYear && 
             d.year <= maxYear &&
-            d.genre === globalSelectedGenre &&
+            d.genre === technicalSelectedGenre &&
             d[selectedAttr] != null &&
             !isNaN(d[selectedAttr]) &&
             d.popularity != null &&
@@ -260,7 +266,7 @@ d3.csv("merged_tracks.csv").then(data => {
         }
 
         // use genre color
-        const pointColor = genreColors[globalSelectedGenre] || "#3182bd";
+        const pointColor = genreColors[technicalSelectedGenre] || "#3182bd";
 
         // bind data to circles
         const circles = pointGroup.selectAll("circle").data(genreData, d => d.track_name + d.year);
@@ -284,35 +290,35 @@ d3.csv("merged_tracks.csv").then(data => {
         merged
             .attr("opacity", d => {
                 // check if track is selected
-                if (selectedTrack && d.track_name === selectedTrack.track_name && 
-                    d.artists_x === selectedTrack.artists_x && d.year === selectedTrack.year) {
+                if (technicalSelectedTrack && d.track_name === technicalSelectedTrack.track_name && 
+                    d.artists_x === technicalSelectedTrack.artists_x && d.year === technicalSelectedTrack.year) {
                     return 1;
                 }
-                if (!popularityFilter) return 0.6;
-                const inRange = d.popularity >= popularityFilter.popMin && 
-                               d.popularity <= popularityFilter.popMax;
+                if (!technicalPopularityFilter) return 0.6;
+                const inRange = d.popularity >= technicalPopularityFilter.popMin && 
+                               d.popularity <= technicalPopularityFilter.popMax;
                 return inRange ? 1 : 0.2;
             })
             .attr("stroke", d => {
                 // check if track is selected
-                if (selectedTrack && d.track_name === selectedTrack.track_name && 
-                    d.artists_x === selectedTrack.artists_x && d.year === selectedTrack.year) {
+                if (technicalSelectedTrack && d.track_name === technicalSelectedTrack.track_name && 
+                    d.artists_x === technicalSelectedTrack.artists_x && d.year === technicalSelectedTrack.year) {
                     return "#000";
                 }
-                if (!popularityFilter) return "#333";
-                const inRange = d.popularity >= popularityFilter.popMin && 
-                               d.popularity <= popularityFilter.popMax;
+                if (!technicalPopularityFilter) return "#333";
+                const inRange = d.popularity >= technicalPopularityFilter.popMin && 
+                               d.popularity <= technicalPopularityFilter.popMax;
                 return inRange ? "#000" : "#333";
             })
             .attr("stroke-width", d => {
                 // check if track is selected
-                if (selectedTrack && d.track_name === selectedTrack.track_name && 
-                    d.artists_x === selectedTrack.artists_x && d.year === selectedTrack.year) {
+                if (technicalSelectedTrack && d.track_name === technicalSelectedTrack.track_name && 
+                    d.artists_x === technicalSelectedTrack.artists_x && d.year === technicalSelectedTrack.year) {
                     return 3;
                 }
-                if (!popularityFilter) return 0.5;
-                const inRange = d.popularity >= popularityFilter.popMin && 
-                               d.popularity <= popularityFilter.popMax;
+                if (!technicalPopularityFilter) return 0.5;
+                const inRange = d.popularity >= technicalPopularityFilter.popMin && 
+                               d.popularity <= technicalPopularityFilter.popMax;
                 return inRange ? 2.5 : 0.5;
             });
 
@@ -323,13 +329,13 @@ d3.csv("merged_tracks.csv").then(data => {
             .attr("cy", d => yScale(d[selectedAttr]))
             .attr("r", d => {
                 // check if track selected
-                if (selectedTrack && d.track_name === selectedTrack.track_name && 
-                    d.artists_x === selectedTrack.artists_x && d.year === selectedTrack.year) {
+                if (technicalSelectedTrack && d.track_name === technicalSelectedTrack.track_name && 
+                    d.artists_x === technicalSelectedTrack.artists_x && d.year === technicalSelectedTrack.year) {
                     return 6;
                 }
-                if (!popularityFilter) return 3.5;
-                const inRange = d.popularity >= popularityFilter.popMin && 
-                               d.popularity <= popularityFilter.popMax;
+                if (!technicalPopularityFilter) return 3.5;
+                const inRange = d.popularity >= technicalPopularityFilter.popMin && 
+                               d.popularity <= technicalPopularityFilter.popMax;
                 return inRange ? 5 : 3.5;
             })
             .attr("fill", pointColor);
@@ -341,9 +347,9 @@ d3.csv("merged_tracks.csv").then(data => {
                 event.stopPropagation();
                 
                 // toggle selection
-                if (selectedTrack && d.track_name === selectedTrack.track_name && 
-                    d.artists_x === selectedTrack.artists_x && d.year === selectedTrack.year) {
-                    selectedTrack = null;
+                if (technicalSelectedTrack && d.track_name === technicalSelectedTrack.track_name && 
+                    d.artists_x === technicalSelectedTrack.artists_x && d.year === technicalSelectedTrack.year) {
+                    technicalSelectedTrack = null;
                     technicalTooltip.style("opacity", 0);
                     
                     // dispatch event to deselect in genre graph
@@ -351,7 +357,7 @@ d3.csv("merged_tracks.csv").then(data => {
                         detail: { track: null, source: 'technical' }
                     }));
                 } else {
-                    selectedTrack = {
+                    technicalSelectedTrack = {
                         track_name: d.track_name,
                         artists_x: d.artists_x,
                         year: d.year
@@ -403,7 +409,7 @@ d3.csv("merged_tracks.csv").then(data => {
             })
             .on("mouseover", (event, d) => {
                 // only show hover tooltip if no track is selected
-                if (!selectedTrack) {
+                if (!technicalSelectedTrack) {
                     // format attribute name with proper capitalization and units
                     let attrDisplay = selectedAttr.charAt(0).toUpperCase() + selectedAttr.slice(1).replace('_', ' ');
                     let attrValue;
@@ -444,7 +450,7 @@ d3.csv("merged_tracks.csv").then(data => {
             })
             .on("mousemove", (event, d) => {
                 // only update position if no track is selected (hover mode)
-                if (!selectedTrack) {
+                if (!technicalSelectedTrack) {
                     d3.select("#tooltip")
                         .style("left", (event.pageX + 10) + "px")
                         .style("top", (event.pageY - 25) + "px");
@@ -452,17 +458,17 @@ d3.csv("merged_tracks.csv").then(data => {
             })
             .on("mouseout", (event, d) => {
                 // don't hide tooltip if track is selected
-                if (!selectedTrack) {
+                if (!technicalSelectedTrack) {
                     d3.select("#tooltip").style("opacity", 0);
                 }
-                // if selectedTrack exists, do nothing (tooltpi stays visible)
+                // if exists, do nothing (tooltip stays visible)
             });
     }
 
     // click empty space to deselect
     svg.on("click", function(event) {
         if (event.target === this || event.target.tagName === 'g' || event.target.tagName === 'path') {
-            selectedTrack = null;
+            technicalSelectedTrack = null;
             technicalTooltip.style("opacity", 0);
             window.dispatchEvent(new CustomEvent('trackSelected', {
                 detail: { track: null, source: 'technical' }
@@ -483,10 +489,10 @@ d3.csv("merged_tracks.csv").then(data => {
 
     // listen for genre selection from graph 1
     window.addEventListener('genreSelected', function(e) {
-        globalSelectedGenre = e.detail.genre;
-        popularityFilter = null; // reset popularity filter when genre changes
-        selectedTrack = null; // reset track selection
-        console.log("Technical graph received genre:", globalSelectedGenre);
+        technicalSelectedGenre = e.detail.genre;
+        technicalPopularityFilter = null; // reset popularity filter when genre changes
+        technicalSelectedTrack = null; // reset track selection
+        console.log("Technical graph received genre:", technicalSelectedGenre);
         updateChart();
     });
 
@@ -500,11 +506,11 @@ d3.csv("merged_tracks.csv").then(data => {
         }
         
         if (!track) {
-            selectedTrack = null;
+            technicalSelectedTrack = null;
             technicalTooltip.style("opacity", 0);
         } else {
             // set selected track - matching by track name, artist, and year
-            selectedTrack = {
+            technicalSelectedTrack = {
                 track_name: track.track_name,
                 artists_x: track.artists_x,
                 year: track.release_year
@@ -519,7 +525,7 @@ d3.csv("merged_tracks.csv").then(data => {
                 const selectedAttr = yDropdown.node().value;
                 
                 // find the data point to get attribute values
-                const dataPoint = allData.find(d => 
+                const dataPoint = technicalAllData.find(d => 
                     d.track_name === track.track_name && 
                     d.artists_x === track.artists_x &&
                     d.year === track.release_year
@@ -585,14 +591,21 @@ d3.csv("merged_tracks.csv").then(data => {
     window.addEventListener('popularityBucketSelected', function(e) {
         const { popMin, popMax, genre } = e.detail;
         
-        if (popMin !== null && (!genre || genre === globalSelectedGenre)) {
-            popularityFilter = { popMin, popMax };
-            console.log("Technical graph received popularity filter:", popularityFilter);
+        if (popMin !== null && (!genre || genre === technicalSelectedGenre)) {
+            technicalPopularityFilter = { popMin, popMax };
+            console.log("Technical graph received popularity filter:", technicalPopularityFilter);
         } else {
-            popularityFilter = null;
+            technicalPopularityFilter = null;
             console.log("Technical graph cleared popularity filter");
         }
         
+        updateChart();
+    });
+
+    // listen for time range changes
+    window.addEventListener('timeRangeChanged', function(e) {
+        technicalTimeRange = e.detail.timeRange;
+        console.log("Technical graph received time range:", technicalTimeRange);
         updateChart();
     });
 
